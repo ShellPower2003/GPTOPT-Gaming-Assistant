@@ -1,0 +1,21 @@
+# NVIDIA RTX 3080 Ti Ventus OC Tuning
+
+NVCPL
+- Low Latency Mode = Ultra
+- Power Management = Prefer Maximum
+- G-Sync/VRR ON, V-Sync OFF in game.
+
+Overclock/Undervolt
+- Undervolt to ~0.875–0.9V @ 1800–1850 MHz.
+- Keeps temps <75 °C with less noise.
+
+Fan Curve
+- Use MSI Afterburner; keep hotspot <90 °C.
+
+DLSS/FrameGen
+- Use Quality mode for balance.
+- Pair with Frame Gen in supported games.
+
+Profiles
+- Use `.nip` esports profile for lowest latency.
+- Balanced profile caps at 90 FPS with DLSS Quality.

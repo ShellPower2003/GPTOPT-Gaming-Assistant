@@ -1,0 +1,7 @@
+# VR Latency Tuning
+
+- Use USB 3.0 for headset link.
+- Enable HAGS, disable Game Bar.
+- Force 90 Hz or 120 Hz fixed refresh.
+- Use RTSS to cap at headset refresh rate.
+- Keep background apps closed.

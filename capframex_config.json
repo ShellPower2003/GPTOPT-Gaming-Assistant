@@ -1,0 +1,7 @@
+{
+  "captureOverlay": true,
+  "excludeIdle": true,
+  "samplingInterval": 50,
+  "sensorPolling": true,
+  "csvExport": true
+}

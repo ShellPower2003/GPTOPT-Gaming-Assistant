@@ -1,0 +1,9 @@
+# Flydigi Controller Latency Tuning
+
+1. Update firmware via Flydigi Game Center.
+2. Set USB polling rate = 1000 Hz.
+3. Device Manager → USB Controllers → disable power saving.
+4. Use TimerResolution to lock 0.5 ms.
+5. Optional: use ISLC with refresh-rate matching.
+
+Rollback: re-enable power saving, close apps.

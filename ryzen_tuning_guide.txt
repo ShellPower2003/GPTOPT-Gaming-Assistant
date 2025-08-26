@@ -1,0 +1,19 @@
+# Ryzen 7600X3D Tuning Guide
+
+PBO
+- Enable in BIOS → Advanced → AMD Overclocking.
+- Raise PPT from 88W → 110W for more sustained boost.
+
+CO (Curve Optimizer)
+- Start with -10 per core, test Cinebench/OCCT.
+- Gradually lower to -15/-20 if stable.
+
+Memory
+- DDR5-6000 CL36 EXPO is ideal; confirm FCLK = 2000 MHz.
+- Use MemTest or Karhu RAM Test.
+
+Scheduler
+- Keep Ryzen Balanced plan for best CCD/CCX scheduling.
+
+Temps
+- Normal up to 89 °C; ensure <80 °C for sustained gaming.

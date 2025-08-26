@@ -1,0 +1,15 @@
+{
+  "enableOverlay": true,
+  "overlayLines": [
+    "FPS",
+    "Frametime (ms)",
+    "GPU Temp (°C)",
+    "CPU Usage (%)",
+    "GPU Usage (%)",
+    "RAM Usage (MB)"
+  ],
+  "overlayPosition": "top-left",
+  "fontSize": 14,
+  "transparency": 20,
+  "updateIntervalMs": 1000
+}

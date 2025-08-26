@@ -1,0 +1,6 @@
+# Overclocking Disclaimer
+
+Any overclocking, undervolting, or registry tweaks are at your own risk.
+- May void warranties.
+- Can cause crashes, instability, or data loss.
+- Always test stability and create backups.

@@ -1,0 +1,42 @@
+[
+  {
+    "prompt": "Undervolt my RTX 3080 Ti Ventus for cooler temps",
+    "category": "GPU",
+    "risk": "moderate"
+  },
+  {
+    "prompt": "Tune PBO and CO on my Ryzen 7600X3D",
+    "category": "CPU",
+    "risk": "moderate"
+  },
+  {
+    "prompt": "Set optimal DDR5-6000 EXPO timings for my RAM",
+    "category": "CPU",
+    "risk": "safe"
+  },
+  {
+    "prompt": "Optimize Windows 11 24H2 for gaming with Hyper-V off",
+    "category": "OS",
+    "risk": "moderate"
+  },
+  {
+    "prompt": "Make NVIDIA Inspector profile for 3080 Ti low-latency esports mode",
+    "category": "GPU",
+    "risk": "moderate"
+  },
+  {
+    "prompt": "Help me analyze a CapFrameX .csv log to find frame spikes",
+    "category": "Diagnostics",
+    "risk": "safe"
+  },
+  {
+    "prompt": "Generate a .reg file to disable Virtualization-Based Security and enable HAGS",
+    "category": "OS",
+    "risk": "high"
+  },
+  {
+    "prompt": "Reset all applied tweaks to default Windows settings",
+    "category": "OS",
+    "risk": "safe"
+  }
+]

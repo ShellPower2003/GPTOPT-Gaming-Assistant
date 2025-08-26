@@ -1,0 +1,6 @@
+[Profile]
+Description = "Balanced Mode - 90 FPS cap with Reflex On"
+0x00A069B5 = 0x0000005A
+0x00A879CF = 0x00000001
+0x00A879CE = 0x00000001
+0x00664339 = 0x00000001

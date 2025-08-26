@@ -1,0 +1,10 @@
+# CapFrameX Benchmark Test Plan
+
+1. Launch CapFrameX, select game .exe.
+2. Run three 60-second captures:
+   - Low load
+   - Medium load
+   - High combat
+3. Export CSV logs.
+4. Repeat runs 3x for accuracy.
+5. Optional: use Afterburner overlay for temps/usage.
