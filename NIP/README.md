@@ -1,15 +1,15 @@
-# NIP Preset Starter Files
+# NIP Preset Files
 
-These `.nip` files are **starter preset manifests** for GPTOPT.
+These `.nip` files are now in actual NVIDIA Profile Inspector export-style XML structure.
 
-Important:
-- They capture intended profile strategy and setting targets.
-- They are useful as portable preset definitions inside this repo.
-- They are **not yet verified against a real exported NPI `.nip` sample** from the connected `nvidiaProfileInspector` source.
+Validation basis:
+- structure was matched against a real exported `.nip` sample provided by the user (`BASE.nip`)
+- the current GPTOPT presets only use setting names and IDs that were confirmed in that sample
 
-Use them as:
-1. a manual build sheet inside NVIDIA Profile Inspector, or
-2. a base to convert once a verified export-format sample is available.
+Current scope:
+- these presets are importable-format XML `.nip` files
+- setting coverage is intentionally limited to the IDs confirmed from the sample
+- broader preset coverage can be added cleanly now that the export structure is known
 
 Included presets:
 - `GPTOPT-Competitive-Latency-Baseline.nip`

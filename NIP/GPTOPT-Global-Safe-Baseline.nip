@@ -1,26 +1,45 @@
-# GPTOPT NIP STARTER FILE
-# Preset: Global Safe Baseline
-# Status: strategy manifest / not yet validated against a real exported NPI .nip sample
-
-[Profile]
-Name=GPTOPT - Global Safe Baseline
-Intent=Provide a conservative starting point and avoid aggressive global overrides
-Scope=Global baseline with minimal risk intent
-
-[Targets]
-TextureFilteringQuality=Quality
-ShaderCache=Enabled
-ThreadedOptimization=Auto
-PowerManagement=Normal
-AnisotropicFiltering=Application-controlled
-Antialiasing=Application-controlled
-LatencyApproach=Do not force aggressive global overrides by default
-VRRStrategy=Leave intentional and per-game aware
-
-[Validation]
-Check1=No obvious global regressions
-Check2=No unexplained stutter increase across titles
-Check3=No visual-quality surprise from broad overrides
-
-[Rollback]
-Method=Stay close to default and escalate only through game-specific profiles
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfProfile>
+  <Profile>
+    <ProfileName>GPTOPT - Global Safe Baseline</ProfileName>
+    <Executeables />
+    <Settings>
+      <ProfileSetting>
+        <SettingNameInfo>Preferred refresh rate</SettingNameInfo>
+        <SettingID>6600001</SettingID>
+        <SettingValue>1</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>Shader disk cache maximum size</SettingNameInfo>
+        <SettingID>11306135</SettingID>
+        <SettingValue>4294967295</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>Enable Ansel</SettingNameInfo>
+        <SettingID>276158834</SettingID>
+        <SettingValue>0</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>VRR requested state</SettingNameInfo>
+        <SettingID>278196727</SettingID>
+        <SettingValue>2</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>G-SYNC</SettingNameInfo>
+        <SettingID>279476687</SettingID>
+        <SettingValue>0</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>Enable G-SYNC globally</SettingNameInfo>
+        <SettingID>294973784</SettingID>
+        <SettingValue>2</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+    </Settings>
+  </Profile>
+</ArrayOfProfile>
