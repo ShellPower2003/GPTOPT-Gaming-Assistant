@@ -44,6 +44,8 @@ This repository is for building and maintaining a custom GPT / assistant that ca
 - `NIP/GPTOPT-Competitive-Latency-Baseline.nip` — competitive preset starter manifest
 - `NIP/GPTOPT-Visual-Quality-Baseline.nip` — visual-quality preset starter manifest
 - `NIP/GPTOPT-Balanced-Baseline.nip` — balanced preset starter manifest
+- `NIP/GPTOPT-Halo-Infinite-Competitive.nip` — Halo Infinite competitive preset starter manifest
+- `NIP/GPTOPT-Global-Safe-Baseline.nip` — conservative global preset starter manifest
 - `NIP/README.md` — notes on current NIP validation status
 - `Registry/MPO-Disable.reg` — MPO disable bundle
 - `Registry/MPO-Restore.reg` — MPO restore bundle
