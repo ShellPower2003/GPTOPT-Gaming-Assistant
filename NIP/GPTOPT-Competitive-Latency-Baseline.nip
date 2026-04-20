@@ -1,0 +1,29 @@
+# GPTOPT NIP STARTER FILE
+# Preset: Competitive Latency Baseline
+# Status: strategy manifest / not yet validated against a real exported NPI .nip sample
+
+[Profile]
+Name=GPTOPT - Competitive Latency Baseline
+Intent=Prioritize frametime stability, lower latency, and competitive consistency
+Scope=Create as a game-specific profile, not a broad global override
+
+[Targets]
+FrameCapStrategy=Use a deliberate external or in-game cap method; do not stack conflicting cap methods blindly
+VRRStrategy=Keep intentional and test with the chosen sync path
+TextureFilteringQuality=High Performance only if image-quality loss is acceptable and testable
+ThreadedOptimization=Auto unless a game-specific test proves otherwise
+ShaderCache=Keep enabled unless troubleshooting corruption or stutter behavior
+LowLatencyApproach=Prefer the game's own latency path first, then profile-level changes only if justified
+PowerManagement=Prefer maximum performance only for the game-specific profile if testing supports it
+AnisotropicFiltering=Prefer application-controlled unless a game-specific override is needed
+Antialiasing=Prefer application-controlled for competitive presets
+
+[Validation]
+Check1=Average FPS
+Check2=1 percent low
+Check3=Frametime spike behavior
+Check4=GPU utilization trend
+Check5=Input feel consistency
+
+[Rollback]
+Method=Export the original profile first and change one setting bucket at a time
