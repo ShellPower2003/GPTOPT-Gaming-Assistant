@@ -1,0 +1,26 @@
+# GPTOPT NIP STARTER FILE
+# Preset: Global Safe Baseline
+# Status: strategy manifest / not yet validated against a real exported NPI .nip sample
+
+[Profile]
+Name=GPTOPT - Global Safe Baseline
+Intent=Provide a conservative starting point and avoid aggressive global overrides
+Scope=Global baseline with minimal risk intent
+
+[Targets]
+TextureFilteringQuality=Quality
+ShaderCache=Enabled
+ThreadedOptimization=Auto
+PowerManagement=Normal
+AnisotropicFiltering=Application-controlled
+Antialiasing=Application-controlled
+LatencyApproach=Do not force aggressive global overrides by default
+VRRStrategy=Leave intentional and per-game aware
+
+[Validation]
+Check1=No obvious global regressions
+Check2=No unexplained stutter increase across titles
+Check3=No visual-quality surprise from broad overrides
+
+[Rollback]
+Method=Stay close to default and escalate only through game-specific profiles
