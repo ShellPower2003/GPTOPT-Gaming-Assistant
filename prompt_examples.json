@@ -1,42 +1,52 @@
 [
   {
-    "prompt": "Undervolt my RTX 3080 Ti Ventus for cooler temps",
-    "category": "GPU",
-    "risk": "moderate"
-  },
-  {
-    "prompt": "Tune PBO and CO on my Ryzen 7600X3D",
-    "category": "CPU",
-    "risk": "moderate"
-  },
-  {
-    "prompt": "Set optimal DDR5-6000 EXPO timings for my RAM",
-    "category": "CPU",
-    "risk": "safe"
-  },
-  {
-    "prompt": "Optimize Windows 11 24H2 for gaming with Hyper-V off",
-    "category": "OS",
-    "risk": "moderate"
-  },
-  {
-    "prompt": "Make NVIDIA Inspector profile for 3080 Ti low-latency esports mode",
-    "category": "GPU",
-    "risk": "moderate"
-  },
-  {
-    "prompt": "Help me analyze a CapFrameX .csv log to find frame spikes",
+    "prompt": "Analyze my CapFrameX capture and tell me the likely cause of frame spikes",
     "category": "Diagnostics",
     "risk": "safe"
   },
   {
-    "prompt": "Generate a .reg file to disable Virtualization-Based Security and enable HAGS",
-    "category": "OS",
-    "risk": "high"
-  },
-  {
-    "prompt": "Reset all applied tweaks to default Windows settings",
+    "prompt": "Give me the safest first-pass Windows 11 gaming optimization plan with rollback steps",
     "category": "OS",
     "risk": "safe"
+  },
+  {
+    "prompt": "Help me build a low-latency NVIDIA Profile Inspector profile for a competitive shooter",
+    "category": "GPU",
+    "risk": "moderate"
+  },
+  {
+    "prompt": "Explain whether HAGS, MPO, VBS, and fullscreen settings are worth changing for my setup",
+    "category": "OS",
+    "risk": "moderate"
+  },
+  {
+    "prompt": "Generate a rollback-aware PowerShell script for gaming cleanup and verification",
+    "category": "Scripts",
+    "risk": "moderate"
+  },
+  {
+    "prompt": "Walk me through RTSS and PresentMon setup for latency testing",
+    "category": "Diagnostics",
+    "risk": "safe"
+  },
+  {
+    "prompt": "Help me choose between competitive low-latency settings and higher image-quality settings",
+    "category": "Tuning",
+    "risk": "safe"
+  },
+  {
+    "prompt": "Give me a short troubleshooting ladder for a game that randomly swings from normal GPU usage to 100%",
+    "category": "Troubleshooting",
+    "risk": "safe"
+  },
+  {
+    "prompt": "Create a concise test plan for checking whether a driver or Windows change actually improved frametime stability",
+    "category": "Benchmarks",
+    "risk": "safe"
+  },
+  {
+    "prompt": "Build me a safe checklist before applying aggressive tweaks like disabling security features or changing registry graphics settings",
+    "category": "Safety",
+    "risk": "high"
   }
 ]
