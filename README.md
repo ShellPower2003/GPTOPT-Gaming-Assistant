@@ -23,8 +23,11 @@ This repository is for building and maintaining a custom GPT / assistant that ca
 - `instructions.txt` — core assistant behavior and response format
 - `prompt_examples.json` — sample user prompts / conversation starters
 - `GPT_Builder_Setup_Guide.txt` — setup guide for importing into a custom GPT
-- `Scripts/Ultimate-Utility.ps1` — interactive PowerShell utility launcher
+- `Scripts/Ultimate-Utility.ps1` — interactive PowerShell utility launcher with a read-only audit path
 - `docs/UPSTREAM_SOURCES.md` — explains how the old repos map into this one
+- `docs/BENCHMARK_ANALYSIS_TEMPLATE.md` — reusable benchmark comparison template
+- `docs/NVIDIA_PROFILE_STRATEGY.md` — guidance for explaining and validating NPI changes
+- `docs/WINDOWS_GRAPHICS_BASELINE.md` — baseline questions and validation order for Windows graphics tuning
 
 ## Design principles
 
@@ -47,8 +50,9 @@ This repository is for building and maintaining a custom GPT / assistant that ca
 - latency / frametime / scaling tradeoff guidance
 
 ### Benchmarks / diagnostics
-- CapFrameX, RTSS, PresentMon, event logs, and basic audit scripts
+- CapFrameX, RTSS, PresentMon, event logs, and audit scripts
 - before/after verification structure
+- reusable analysis templates
 
 ### Prompt / assistant behavior
 - response structure for high-signal technical help
@@ -62,6 +66,5 @@ This repository intentionally **does not re-bundle third-party notebook/course c
 
 - example `.nip` profiles
 - rollback `.reg` bundles
-- benchmark-analysis templates
 - example CapFrameX / PresentMon interpretation guides
 - a `Scripts/Profiles` folder for safe preset scripts
