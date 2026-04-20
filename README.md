@@ -18,7 +18,7 @@ That launcher gives you one menu for:
 - a read-only system audit
 - docs and templates
 - preset checklist scripts
-- NIP preset starter files
+- NIP preset files
 - registry bundle visibility
 - opening the repo folder directly
 
@@ -41,12 +41,12 @@ This repository is for building and maintaining a custom GPT / assistant that ca
 - `Scripts/Ultimate-Utility.ps1` — utility script with a read-only audit path
 - `Profiles/Competitive-Latency-Baseline.ps1` — competitive tuning checklist script
 - `Profiles/Visual-Quality-Baseline.ps1` — image-quality tuning checklist script
-- `NIP/GPTOPT-Competitive-Latency-Baseline.nip` — competitive preset starter manifest
-- `NIP/GPTOPT-Visual-Quality-Baseline.nip` — visual-quality preset starter manifest
-- `NIP/GPTOPT-Balanced-Baseline.nip` — balanced preset starter manifest
-- `NIP/GPTOPT-Halo-Infinite-Competitive.nip` — Halo Infinite competitive preset starter manifest
-- `NIP/GPTOPT-Global-Safe-Baseline.nip` — conservative global preset starter manifest
-- `NIP/README.md` — notes on current NIP validation status
+- `NIP/GPTOPT-Competitive-Latency-Baseline.nip` — competitive preset in actual export-style XML format
+- `NIP/GPTOPT-Visual-Quality-Baseline.nip` — visual-quality preset in actual export-style XML format
+- `NIP/GPTOPT-Balanced-Baseline.nip` — balanced preset in actual export-style XML format
+- `NIP/GPTOPT-Halo-Infinite-Competitive.nip` — Halo Infinite competitive preset in actual export-style XML format
+- `NIP/GPTOPT-Global-Safe-Baseline.nip` — conservative global preset in actual export-style XML format
+- `NIP/README.md` — notes on current NIP structure and scope
 - `Registry/MPO-Disable.reg` — MPO disable bundle
 - `Registry/MPO-Restore.reg` — MPO restore bundle
 - `Registry/README.md` — notes for registry bundle use
@@ -91,11 +91,11 @@ This repository intentionally **does not re-bundle third-party notebook/course c
 
 ## Current NIP status
 
-The included `.nip` files are starter preset manifests inside this repo. They document intended profile targets cleanly, but they are **not yet validated against a real exported NVIDIA Profile Inspector `.nip` sample** from the connected source.
+The repo now has real export-style XML `.nip` files based on a user-provided exported sample. The current presets only use setting names and IDs that were directly confirmed from that sample, so the structure is now grounded and the scope is intentionally controlled.
 
 ## Recommended next additions
 
-- convert the starter `.nip` manifests into verified importable export-format files
-- more rollback bundles once baseline handling is documented cleanly
-- game-specific interpretation guides
-- more targeted profile scripts
+- expand the XML preset library using more confirmed NPI setting IDs
+- add more game-specific `.nip` exports
+- add more rollback bundles once baseline handling is documented cleanly
+- add more targeted profile scripts
