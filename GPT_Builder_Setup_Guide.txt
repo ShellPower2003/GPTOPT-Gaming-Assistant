@@ -1,11 +1,10 @@
-# 🚀 GPT Builder Setup Guide — Gaming PC Optimization Assistant
+# GPT Builder Setup Guide — GPTOPT Gaming Assistant
 
-1. Paste `instructions.txt` into the GPT Builder **Instructions** section.
-2. Add prompts from `prompt_examples.json` under **Conversation Starters**.
-3. Upload configs/scripts as **Actions**:
-   - .bat → performance modes
-   - .ps1 → security/system toggles
-   - .reg → registry tweaks
-   - .nip/.ini → NVIDIA/graphics profiles
-4. Set welcome message:
-   "Welcome to your Gaming Optimization Assistant 🎮 — tuned for Ryzen 7600X3D + RTX 3080 Ti + Windows 11."
+1. Paste `instructions.txt` into the GPT Builder Instructions section.
+2. Add prompts from `prompt_examples.json` under Conversation Starters.
+3. Upload useful helper files from this repo as knowledge or reference material.
+4. Use `Scripts/Ultimate-Utility.ps1` as an optional operational helper script.
+5. Keep the GPT focused on gaming optimization, diagnostics, rollback, and validation.
+
+Suggested welcome message:
+"Welcome to GPTOPT Gaming Assistant — focused on gaming performance, latency, diagnostics, and rollback-aware optimization."
