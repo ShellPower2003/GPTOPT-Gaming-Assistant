@@ -1,28 +1,39 @@
-# GPTOPT NIP STARTER FILE
-# Preset: Balanced Baseline
-# Status: strategy manifest / not yet validated against a real exported NPI .nip sample
-
-[Profile]
-Name=GPTOPT - Balanced Baseline
-Intent=Avoid extreme low-latency or extreme visual-quality bias; favor repeatable stability
-Scope=Use as the safest first-pass game-specific profile baseline
-
-[Targets]
-TextureFilteringQuality=Quality
-ShaderCache=Enabled
-ThreadedOptimization=Auto
-PowerManagement=Normal unless repeated testing supports game-specific maximum performance
-AnisotropicFiltering=Application-controlled
-Antialiasing=Application-controlled
-VRRStrategy=Use only when intentional with the full sync path
-LatencyApproach=Start with the game's exposed settings before profile overrides
-
-[Validation]
-Check1=Average FPS
-Check2=1 percent low
-Check3=Frametime stability
-Check4=GPU utilization trend
-Check5=Subjective smoothness without hidden variable changes
-
-[Rollback]
-Method=Keep the profile close to default and only escalate after a clean benchmark comparison
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfProfile>
+  <Profile>
+    <ProfileName>GPTOPT - Balanced Baseline</ProfileName>
+    <Executeables />
+    <Settings>
+      <ProfileSetting>
+        <SettingNameInfo>Preferred refresh rate</SettingNameInfo>
+        <SettingID>6600001</SettingID>
+        <SettingValue>1</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>Shader disk cache maximum size</SettingNameInfo>
+        <SettingID>11306135</SettingID>
+        <SettingValue>4294967295</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>Enable Ansel</SettingNameInfo>
+        <SettingID>276158834</SettingID>
+        <SettingValue>0</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>VRR requested state</SettingNameInfo>
+        <SettingID>278196727</SettingID>
+        <SettingValue>2</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>G-SYNC</SettingNameInfo>
+        <SettingID>279476687</SettingID>
+        <SettingValue>0</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+    </Settings>
+  </Profile>
+</ArrayOfProfile>
