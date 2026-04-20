@@ -104,6 +104,7 @@ function Run-ReadOnlyAudit {
     Write-Host '- NVIDIA profile strategy guide'
     Write-Host '- Windows graphics baseline guide'
     Write-Host '- preset checklist scripts'
+    Write-Host '- NIP preset starter files'
     Write-Host '- registry bundle folder'
 }
 
@@ -141,6 +142,25 @@ function Show-PresetsMenu {
     } while ($choice -ne '3')
 }
 
+function Show-NipMenu {
+    do {
+        Show-Header 'NIP Preset Starter Files'
+        Write-Host '1. README / status'
+        Write-Host '2. Competitive latency baseline'
+        Write-Host '3. Visual quality baseline'
+        Write-Host '4. Balanced baseline'
+        Write-Host '5. Back'
+        $choice = Read-Host 'Choose'
+
+        switch ($choice) {
+            '1' { Show-Header 'NIP README'; Show-TextFile (Join-Path $RepoRoot 'NIP/README.md'); Pause-Continue }
+            '2' { Show-Header 'Competitive Latency NIP'; Show-TextFile (Join-Path $RepoRoot 'NIP/GPTOPT-Competitive-Latency-Baseline.nip'); Pause-Continue }
+            '3' { Show-Header 'Visual Quality NIP'; Show-TextFile (Join-Path $RepoRoot 'NIP/GPTOPT-Visual-Quality-Baseline.nip'); Pause-Continue }
+            '4' { Show-Header 'Balanced NIP'; Show-TextFile (Join-Path $RepoRoot 'NIP/GPTOPT-Balanced-Baseline.nip'); Pause-Continue }
+        }
+    } while ($choice -ne '5')
+}
+
 function Show-RegistryMenu {
     Show-Header 'Registry Bundles'
     Write-Host 'Available files:' -ForegroundColor Yellow
@@ -160,21 +180,23 @@ function Show-MainMenu {
         Write-Host '1. Run read-only system audit'
         Write-Host '2. Open docs menu'
         Write-Host '3. Open preset checklist scripts'
-        Write-Host '4. Show registry bundles'
-        Write-Host '5. Open repo folder in Explorer'
-        Write-Host '6. Exit'
+        Write-Host '4. Open NIP preset starter files'
+        Write-Host '5. Show registry bundles'
+        Write-Host '6. Open repo folder in Explorer'
+        Write-Host '7. Exit'
         $choice = Read-Host 'Choose'
 
         switch ($choice) {
             '1' { Run-ReadOnlyAudit; Pause-Continue }
             '2' { Show-DocsMenu }
             '3' { Show-PresetsMenu }
-            '4' { Show-RegistryMenu }
-            '5' { Open-RepoRoot }
-            '6' { Write-Host 'Exiting...' -ForegroundColor Green }
-            default { if ($choice -ne '6') { Write-Host 'Invalid choice.' -ForegroundColor Red; Pause-Continue } }
+            '4' { Show-NipMenu }
+            '5' { Show-RegistryMenu }
+            '6' { Open-RepoRoot }
+            '7' { Write-Host 'Exiting...' -ForegroundColor Green }
+            default { if ($choice -ne '7') { Write-Host 'Invalid choice.' -ForegroundColor Red; Pause-Continue } }
         }
-    } while ($choice -ne '6')
+    } while ($choice -ne '7')
 }
 
 Show-MainMenu
