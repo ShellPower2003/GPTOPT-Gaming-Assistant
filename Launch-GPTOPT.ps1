@@ -149,7 +149,9 @@ function Show-NipMenu {
         Write-Host '2. Competitive latency baseline'
         Write-Host '3. Visual quality baseline'
         Write-Host '4. Balanced baseline'
-        Write-Host '5. Back'
+        Write-Host '5. Halo Infinite competitive'
+        Write-Host '6. Global safe baseline'
+        Write-Host '7. Back'
         $choice = Read-Host 'Choose'
 
         switch ($choice) {
@@ -157,8 +159,10 @@ function Show-NipMenu {
             '2' { Show-Header 'Competitive Latency NIP'; Show-TextFile (Join-Path $RepoRoot 'NIP/GPTOPT-Competitive-Latency-Baseline.nip'); Pause-Continue }
             '3' { Show-Header 'Visual Quality NIP'; Show-TextFile (Join-Path $RepoRoot 'NIP/GPTOPT-Visual-Quality-Baseline.nip'); Pause-Continue }
             '4' { Show-Header 'Balanced NIP'; Show-TextFile (Join-Path $RepoRoot 'NIP/GPTOPT-Balanced-Baseline.nip'); Pause-Continue }
+            '5' { Show-Header 'Halo Infinite Competitive NIP'; Show-TextFile (Join-Path $RepoRoot 'NIP/GPTOPT-Halo-Infinite-Competitive.nip'); Pause-Continue }
+            '6' { Show-Header 'Global Safe Baseline NIP'; Show-TextFile (Join-Path $RepoRoot 'NIP/GPTOPT-Global-Safe-Baseline.nip'); Pause-Continue }
         }
-    } while ($choice -ne '5')
+    } while ($choice -ne '7')
 }
 
 function Show-RegistryMenu {

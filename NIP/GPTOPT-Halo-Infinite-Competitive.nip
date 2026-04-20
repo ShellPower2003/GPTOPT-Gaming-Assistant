@@ -1,0 +1,30 @@
+# GPTOPT NIP STARTER FILE
+# Preset: Halo Infinite Competitive
+# Status: strategy manifest / not yet validated against a real exported NPI .nip sample
+
+[Profile]
+Name=GPTOPT - Halo Infinite Competitive
+Intent=Support competitive play priorities: consistency, low latency, and repeatable frametime behavior
+Scope=Game-specific profile only
+Game=Halo Infinite
+
+[Targets]
+FrameCapStrategy=Use one deliberate cap path and do not stack multiple limiters blindly
+VRRStrategy=Test only with the exact sync path in use
+TextureFilteringQuality=High Performance only if distant clarity loss is acceptable
+ThreadedOptimization=Auto unless a direct A/B test proves otherwise
+ShaderCache=Enabled
+PowerManagement=Game-specific maximum performance only if it improves consistency without creating worse idle/global behavior
+AnisotropicFiltering=Application-controlled
+Antialiasing=Application-controlled
+LatencyApproach=Prefer the game's own latency path or sync method first; use profile-level changes as a second step
+
+[Validation]
+Check1=Average FPS on the same map and route
+Check2=1 percent low on the same route
+Check3=Frametime spike frequency
+Check4=GPU utilization swing behavior
+Check5=Input feel consistency
+
+[Rollback]
+Method=Export the original profile first, change one bucket at a time, and keep the route fixed during testing

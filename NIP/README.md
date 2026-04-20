@@ -15,3 +15,5 @@ Included presets:
 - `GPTOPT-Competitive-Latency-Baseline.nip`
 - `GPTOPT-Visual-Quality-Baseline.nip`
 - `GPTOPT-Balanced-Baseline.nip`
+- `GPTOPT-Halo-Infinite-Competitive.nip`
+- `GPTOPT-Global-Safe-Baseline.nip`
