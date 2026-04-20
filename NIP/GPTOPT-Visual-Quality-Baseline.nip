@@ -1,0 +1,28 @@
+# GPTOPT NIP STARTER FILE
+# Preset: Visual Quality Baseline
+# Status: strategy manifest / not yet validated against a real exported NPI .nip sample
+
+[Profile]
+Name=GPTOPT - Visual Quality Baseline
+Intent=Prioritize image clarity and quality while keeping performance measurable
+Scope=Prefer game-specific profile changes and preserve rollback clarity
+
+[Targets]
+TextureFilteringQuality=Quality or High Quality depending on measurable cost
+AnisotropicFiltering=Application-controlled or deliberate override where the game benefits clearly
+Antialiasing=Prefer application-controlled unless a title-specific override is proven useful
+ShaderCache=Enabled
+ThreadedOptimization=Auto unless proven harmful by testing
+PowerManagement=Normal or game-specific maximum performance only if stutter behavior justifies it
+LODApproach=Do not use aggressive negative bias without clear image-quality intent
+VRRStrategy=Test with the actual display and sync path in use
+
+[Validation]
+Check1=Average FPS
+Check2=1 percent low
+Check3=Distance clarity changes
+Check4=Texture/shimmering behavior
+Check5=GPU saturation and frametime cost
+
+[Rollback]
+Method=Export the original profile first and only change one image-quality bucket at a time
