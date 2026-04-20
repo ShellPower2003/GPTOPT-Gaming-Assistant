@@ -1,34 +1,67 @@
-# 🎮 GPTOPT Gaming Optimization Assistant
+# GPTOPT Gaming Assistant
 
-This repository contains all configuration files, scripts, and instructions for deploying a custom ChatGPT-based Windows 11 Gaming Optimization Assistant.
+Central repository for a custom gaming optimization assistant focused on Windows 11 tuning, latency reduction, benchmarking, NVIDIA profile work, and practical troubleshooting for performance-sensitive PC gaming setups.
 
-## 🔧 Features
+This repo now serves as the **single hub** for the earlier experimental repositories:
 
-- Windows 11 tuning (registry, services, power plans)
-- NVIDIA + NPI optimization
-- AMD Ryzen 7600X3D tuning
-- Benchmarking tools: CapFrameX, RTSS
-- VR + input latency tuning
-- Downloadable scripts (.bat, .ps1, .reg, .nip, .json)
-- Game-specific config profiles
+- **PowerShell-Utility** → merged here as a real script under `Scripts/Ultimate-Utility.ps1`
+- **nvidiaProfileInspector** → treated as an upstream companion/reference project for profile-level NVIDIA tuning
+- **Gpttest-** → treated as a learning/reference source for prompt-engineering patterns, not bundled content
 
-## 📁 Files Overview
+## What this repo is
 
-- `instructions.txt` - GPT logic & behavior
-- `prompt_examples.json` - Conversation starters
-- `.bat/.ps1/.reg/.nip` - Scripts for optimization and rollback
-- `.json/.ini/.txt` - Configs for tools like RTSS, CapFrameX, Special K
-- `*_guide.txt` - Hardware/software tuning walkthroughs
+This repository is for building and maintaining a custom GPT / assistant that can:
 
-## 🚀 Deployment Instructions
+- analyze gaming-performance issues
+- suggest safe Windows 11 tuning steps
+- explain NVIDIA Profile Inspector concepts and profile strategy
+- guide benchmarking with CapFrameX, RTSS, PresentMon, and similar tools
+- provide rollback-aware scripts and concise operating guidance
 
-1. Link this repo in your ChatGPT GPT Builder (Actions tab → “Import from GitHub”).
-2. Paste the contents of `instructions.txt` into the Instructions field (auto imported).
-3. Add prompts from `prompt_examples.json`.
-4. Drag/drop or reference the downloadable files as needed.
+## Included files
 
-> This GPT is built for high-performance, latency-sensitive gaming setups.
+- `instructions.txt` — core assistant behavior and response format
+- `prompt_examples.json` — sample user prompts / conversation starters
+- `GPT_Builder_Setup_Guide.txt` — setup guide for importing into a custom GPT
+- `Scripts/Ultimate-Utility.ps1` — interactive PowerShell utility launcher
+- `docs/UPSTREAM_SOURCES.md` — explains how the old repos map into this one
 
-## 🔒 Disclaimer
+## Design principles
 
-Use all tweaks and overclocking advice at your own risk. Always test stability and back up your system.
+1. Prefer reversible changes first.
+2. Explain tradeoffs clearly.
+3. Keep risky changes explicit.
+4. Validate with measurement tools.
+5. Keep the assistant concise, decisive, and technically grounded.
+
+## Scope
+
+### Windows / OS
+- gaming-oriented Windows tuning
+- rollback-aware registry and service guidance
+- safe-first troubleshooting paths
+
+### GPU / NVIDIA
+- practical explanation of common NPI settings
+- profile strategy and profile-management workflow
+- latency / frametime / scaling tradeoff guidance
+
+### Benchmarks / diagnostics
+- CapFrameX, RTSS, PresentMon, event logs, and basic audit scripts
+- before/after verification structure
+
+### Prompt / assistant behavior
+- response structure for high-signal technical help
+- reusable prompt patterns for diagnostics, rollback, and profile generation
+
+## Notes on upstream content
+
+This repository intentionally **does not re-bundle third-party notebook/course content** from other projects. When outside repos are useful, they are documented as references in `docs/UPSTREAM_SOURCES.md`.
+
+## Recommended next additions
+
+- example `.nip` profiles
+- rollback `.reg` bundles
+- benchmark-analysis templates
+- example CapFrameX / PresentMon interpretation guides
+- a `Scripts/Profiles` folder for safe preset scripts
