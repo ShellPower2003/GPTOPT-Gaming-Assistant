@@ -104,7 +104,7 @@ function Run-ReadOnlyAudit {
     Write-Host '- NVIDIA profile strategy guide'
     Write-Host '- Windows graphics baseline guide'
     Write-Host '- preset checklist scripts'
-    Write-Host '- NIP preset starter files'
+    Write-Host '- NIP preset files'
     Write-Host '- registry bundle folder'
 }
 
@@ -144,7 +144,7 @@ function Show-PresetsMenu {
 
 function Show-NipMenu {
     do {
-        Show-Header 'NIP Preset Starter Files'
+        Show-Header 'NIP Preset Files'
         Write-Host '1. README / status'
         Write-Host '2. Competitive latency baseline'
         Write-Host '3. Visual quality baseline'
@@ -184,7 +184,7 @@ function Show-MainMenu {
         Write-Host '1. Run read-only system audit'
         Write-Host '2. Open docs menu'
         Write-Host '3. Open preset checklist scripts'
-        Write-Host '4. Open NIP preset starter files'
+        Write-Host '4. Open NIP preset files'
         Write-Host '5. Show registry bundles'
         Write-Host '6. Open repo folder in Explorer'
         Write-Host '7. Exit'
