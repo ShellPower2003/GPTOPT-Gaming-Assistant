@@ -4,9 +4,22 @@ Central repository for a custom gaming optimization assistant focused on Windows
 
 This repo now serves as the **single hub** for the earlier experimental repositories:
 
-- **PowerShell-Utility** → merged here as a real script under `Scripts/Ultimate-Utility.ps1`
+- **PowerShell-Utility** → merged here as a real script and toolkit path
 - **nvidiaProfileInspector** → treated as an upstream companion/reference project for profile-level NVIDIA tuning
 - **Gpttest-** → treated as a learning/reference source for prompt-engineering patterns, not bundled content
+
+## One-script entry point
+
+Run this from PowerShell at the repo root:
+
+`./Launch-GPTOPT.ps1`
+
+That launcher gives you one menu for:
+- a read-only system audit
+- docs and templates
+- preset checklist scripts
+- registry bundle visibility
+- opening the repo folder directly
 
 ## What this repo is
 
@@ -20,14 +33,21 @@ This repository is for building and maintaining a custom GPT / assistant that ca
 
 ## Included files
 
+- `Launch-GPTOPT.ps1` — single-entry toolkit launcher
 - `instructions.txt` — core assistant behavior and response format
 - `prompt_examples.json` — sample user prompts / conversation starters
 - `GPT_Builder_Setup_Guide.txt` — setup guide for importing into a custom GPT
-- `Scripts/Ultimate-Utility.ps1` — interactive PowerShell utility launcher with a read-only audit path
+- `Scripts/Ultimate-Utility.ps1` — utility script with a read-only audit path
+- `Profiles/Competitive-Latency-Baseline.ps1` — competitive tuning checklist script
+- `Profiles/Visual-Quality-Baseline.ps1` — image-quality tuning checklist script
+- `Registry/MPO-Disable.reg` — MPO disable bundle
+- `Registry/MPO-Restore.reg` — MPO restore bundle
+- `Registry/README.md` — notes for registry bundle use
 - `docs/UPSTREAM_SOURCES.md` — explains how the old repos map into this one
 - `docs/BENCHMARK_ANALYSIS_TEMPLATE.md` — reusable benchmark comparison template
 - `docs/NVIDIA_PROFILE_STRATEGY.md` — guidance for explaining and validating NPI changes
 - `docs/WINDOWS_GRAPHICS_BASELINE.md` — baseline questions and validation order for Windows graphics tuning
+- `docs/CAPFRAMEX_PRESENTMON_GUIDE.md` — capture-discipline guide
 
 ## Design principles
 
@@ -65,6 +85,6 @@ This repository intentionally **does not re-bundle third-party notebook/course c
 ## Recommended next additions
 
 - example `.nip` profiles
-- rollback `.reg` bundles
-- example CapFrameX / PresentMon interpretation guides
-- a `Scripts/Profiles` folder for safe preset scripts
+- more rollback bundles once baseline handling is documented cleanly
+- game-specific interpretation guides
+- more targeted profile scripts
