@@ -1,3 +1,3 @@
 @echo off
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\HaloSight.ps1" stop
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\HaloSight.ps1" -Mode stop
 pause
