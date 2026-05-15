@@ -9,6 +9,8 @@
 - Faster single-pass evidence discovery with upload safety caps
 - ffmpeg path resolution and x264 fallback when NVENC is unavailable
 - WPF GUI wrapper for start, stop, status, report, upload-folder open, and zip-path copy
+- Default/user settings split with GUI editing and validation
+- Smoke test and GitHub Actions coverage
 
 ## v0.5 next
 - Parse CapFrameX CSV/JSON automatically into report summary
