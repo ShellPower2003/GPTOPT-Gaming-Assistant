@@ -55,6 +55,16 @@ Workflow:
 - Added `HaloSight_GUI.cmd`, a WPF button wrapper for start, stop, status, report, opening the latest session, opening the upload folder, and copying the latest upload zip path.
 - The GUI reads `config\halosight.config.json` so it uses the same session root as the optimized capture script.
 
+## Tests
+
+Run the smoke test from the `HaloSight` folder:
+
+```text
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\smoke_test.ps1
+```
+
+The smoke test parses both PowerShell scripts, loads the JSON config, runs `scripts\HaloSight.ps1 -Mode status`, and checks that the package does not include process closure, Halo priority modification, injection, memory reads, or input manipulation behavior.
+
 ## Safety
 
 It does not close Chrome/Edge because the browser may be the ChatGPT session. It does not change Halo priority. It does not reboot.
