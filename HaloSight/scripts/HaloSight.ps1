@@ -1,6 +1,6 @@
 param(
     [ValidateSet('start','stop','status','report')]
-    [string]$Command = 'status'
+    [string]$Mode = 'status'
 )
 
 $ErrorActionPreference = 'Continue'
@@ -269,7 +269,7 @@ function Start-Session {
     $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
     $dir = Join-Path $SessionRoot "session_$stamp"
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
-    $state = [pscustomobject]@{ SessionDir=$dir; StartTime=(Get-Date).ToString('o'); Project=$Cfg.Project; Version='0.3' }
+    $state = [pscustomobject]@{ SessionDir=$dir; StartTime=(Get-Date).ToString('o'); Project=$Cfg.Project; Version='0.4' }
     Export-Object $state $StatePath
     Export-Object $Cfg (Join-Path $dir 'halosight.config.used.json')
     ACT 'Capturing start snapshot'
@@ -311,7 +311,7 @@ function Show-Status {
         Select ProcessName,Id,PriorityClass,@{n='RAM_MB';e={[math]::Round($_.WorkingSet64/1MB,1)}} | Format-Table -AutoSize
 }
 
-switch($Command){
+switch($Mode){
     'start' { Start-Session }
     'stop' { Stop-Session }
     'status' { Show-Status }
