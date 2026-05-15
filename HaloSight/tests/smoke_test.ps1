@@ -2,9 +2,14 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
+$RepoRoot = Split-Path -Parent $Root
 $CoreScript = Join-Path $Root 'scripts\HaloSight.ps1'
 $SettingsScript = Join-Path $Root 'scripts\HaloSightSettings.ps1'
 $UserConfigPath = Join-Path $Root 'config\halosight.user.json'
+$LauncherPath = Join-Path $Root 'GPTOPT_LAUNCHER.cmd'
+if(!(Test-Path -LiteralPath $LauncherPath)){ $LauncherPath = Join-Path $RepoRoot 'GPTOPT_LAUNCHER.cmd' }
+$RunGptOptPath = Join-Path $Root 'Run-GPTOPT.ps1'
+if(!(Test-Path -LiteralPath $RunGptOptPath)){ $RunGptOptPath = Join-Path $RepoRoot 'Run-GPTOPT.ps1' }
 
 function Assert($Condition, $Message){
     if(-not $Condition){ throw $Message }
@@ -17,6 +22,7 @@ function Assert-Parses($Path){
 
 Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.ps1' |
     ForEach-Object { Assert-Parses $_.FullName }
+Assert-Parses $RunGptOptPath
 
 Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.json' |
     ForEach-Object { $null = Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json }
@@ -55,6 +61,16 @@ try{
     Remove-Item -LiteralPath $testHome -Recurse -Force -ErrorAction SilentlyContinue
 }
 
+$launcherText = Get-Content -Raw -LiteralPath $LauncherPath
+Assert ($launcherText -match 'Run-GPTOPT\.ps1|HaloSightGUI\.ps1') 'GPTOPT_LAUNCHER.cmd must launch the GUI path.'
+Assert ($launcherText -notmatch '(?i):menu|set /p|Select an option|HaloSight Start|HaloSight Stop|HaloSight Status|HaloSight Settings|Run Smoke Test') 'GPTOPT_LAUNCHER.cmd contains old menu workflow.'
+Assert ($launcherText -notmatch '(?i)HaloSight\.ps1"\s+-Mode\s+(start|stop|status|report)') 'GPTOPT_LAUNCHER.cmd exposes direct HaloSight modes.'
+
+$runText = Get-Content -Raw -LiteralPath $RunGptOptPath
+Assert ($runText -match '\[ValidateSet\(''gui'',''test''\)\]') 'Run-GPTOPT.ps1 must only expose gui/test modes.'
+Assert ($runText -match '\[string\]\$Mode\s*=\s*''gui''') 'Run-GPTOPT.ps1 must default to GUI mode.'
+Assert ($runText -notmatch "(?i)'(start|stop|status|settings)'") 'Run-GPTOPT.ps1 exposes removed normal-user modes.'
+
 $runtimeFiles = Get-ChildItem -LiteralPath $Root -Recurse -File |
     Where-Object {
         $_.Extension -in @('.ps1','.cmd') -and
@@ -71,5 +87,6 @@ Assert ($runtimeText -notmatch '(?i)\.PriorityClass\s*=') 'Process priority assi
 Assert ($runtimeText -notmatch '(?i)(CreateRemoteThread|VirtualAllocEx|WriteProcessMemory|SetWindowsHookEx)') 'Injection API found.'
 Assert ($runtimeText -notmatch '(?i)(ReadProcessMemory|OpenProcess|PROCESS_VM_READ)') 'Game memory read API found.'
 Assert ($runtimeText -notmatch '(?i)(SendInput|mouse_event|keybd_event)') 'Input manipulation API found.'
+Assert ($runtimeText -notmatch '(?i)(Restart-Computer|Stop-Computer|shutdown\.exe|logoff\.exe)') 'Automatic reboot/logoff/shutdown behavior found.'
 
 Write-Host '[OK] HaloSight smoke test passed.' -ForegroundColor Green
