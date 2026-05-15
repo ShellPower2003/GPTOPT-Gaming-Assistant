@@ -16,7 +16,7 @@ $SessionRoot = if($Config -and $Config.SessionRoot){
 function Run-HS($mode){
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = "powershell.exe"
-    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$Script`" -Command $mode"
+    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$Script`" -Mode $mode"
     $psi.WorkingDirectory = $Root
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
