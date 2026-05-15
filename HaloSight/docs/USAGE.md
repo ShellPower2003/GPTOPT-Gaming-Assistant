@@ -16,6 +16,8 @@ The normal workflow happens inside the GUI. There is no normal-user launcher men
 
 The dashboard cards show Active Session, Halo, RTSS, MSI Afterburner, CapFrameX, OBS, Timer Resolution, Gaming Services, Audio/Sonar, Problem Devices, Pending Reboot/Rename, and Latest Upload Zip with GOOD/WARN/BAD/UNKNOWN badges. `Ready for Halo?` and `Refresh Status` are read-only checks.
 
+Start, Stop, Status, and Rebuild Report run in the background. The GUI remains usable while `Stop + Build Upload` packages evidence, with action buttons disabled until the command completes.
+
 ## Advanced manual fallback
 
 These launchers remain available for development and fallback troubleshooting:
