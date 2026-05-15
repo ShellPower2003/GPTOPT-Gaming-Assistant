@@ -51,8 +51,87 @@ function Get-LatestUploadZip {
     return $null
 }
 
-function ConvertTo-Multiline($items){ return (@($items) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join "`r`n" }
-function ConvertFrom-Multiline($text){ return @($text -split "(`r`n|`n|;)" | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+function Get-HaloSightTimerResolutionMs {
+    try{
+        if(-not ('HSGUI_Timer' -as [type])){
+            Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class HSGUI_Timer {
+    [DllImport("ntdll.dll")] public static extern int NtQueryTimerResolution(out uint min,out uint max,out uint current);
+}
+"@ -ErrorAction SilentlyContinue
+        }
+        [uint32]$a=0;[uint32]$b=0;[uint32]$c=0
+        [HSGUI_Timer]::NtQueryTimerResolution([ref]$a,[ref]$b,[ref]$c) | Out-Null
+        return [math]::Round($c/10000,3)
+    }catch{ return $null }
+}
+
+function Test-HaloSightProcess {
+    param([string[]]$Names)
+    $found = @(Get-Process $Names -ErrorAction SilentlyContinue)
+    return [pscustomobject]@{ Count=$found.Count; Names=@($found | Select-Object -ExpandProperty ProcessName -Unique) }
+}
+
+function New-HaloSightCardState($Title, $State, $Detail){
+    [pscustomobject]@{ Title=$Title; State=$State; Detail=$Detail }
+}
+
+function Get-HaloSightDashboardState {
+    Reload-HSConfig
+    $statePath = Join-Path $SessionRoot '_active_session.json'
+    $active = Test-Path -LiteralPath $statePath
+    $latestZip = Get-LatestUploadZip
+    $latestSession = Get-LatestSessionPath
+    $timer = Get-HaloSightTimerResolutionMs
+    $halo = Test-HaloSightProcess @('HaloInfinite')
+    $rtss = Test-HaloSightProcess @('RTSS')
+    $afterburner = Test-HaloSightProcess @('MSIAfterburner')
+    $capFrameX = Test-HaloSightProcess @('CapFrameX')
+    $obs = Test-HaloSightProcess @('obs64','obs')
+    $sonar = Test-HaloSightProcess @('SteelSeriesSonar','SteelSeriesEngine','audiodg')
+    $services = @(Get-Service @($Config.WatchedServices) -ErrorAction SilentlyContinue)
+    $runningServices = @($services | Where-Object { $_.Status -eq 'Running' })
+    $problemDevices = @(Get-PnpDevice -ErrorAction SilentlyContinue | Where-Object { $_.Status -notin @('OK','Unknown') })
+    $cbsPending = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'
+    $wuPending = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
+    $renameRaw = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue
+    $renameCount = @($renameRaw.PendingFileRenameOperations | Where-Object { $_ -and $_.Trim() -ne '' }).Count
+
+    $serviceState = if($services.Count -eq 0){ 'UNKNOWN' }elseif($runningServices.Count -eq $services.Count){ 'GOOD' }elseif($runningServices.Count -gt 0){ 'WARN' }else{ 'BAD' }
+    $timerState = if($null -eq $timer){ 'UNKNOWN' }elseif($timer -le 1.1){ 'GOOD' }elseif($timer -le 5){ 'WARN' }else{ 'BAD' }
+    $rebootState = if($cbsPending -or $wuPending -or $renameCount -gt 0){ 'WARN' }else{ 'GOOD' }
+    $uploadState = if($latestZip){ 'GOOD' }else{ 'UNKNOWN' }
+
+    [pscustomobject]@{
+        ActiveSession = $active
+        LatestUploadZip = $latestZip
+        LatestSession = $latestSession
+        Cards = @(
+            (New-HaloSightCardState 'Active Session' ($(if($active){'GOOD'}else{'UNKNOWN'})) ($(if($active){'Running'}else{'None'})))
+            (New-HaloSightCardState 'Halo' ($(if($halo.Count -gt 0){'GOOD'}else{'UNKNOWN'})) ($(if($halo.Count -gt 0){"$($halo.Count) process(es)"}else{'Not running'})))
+            (New-HaloSightCardState 'RTSS' ($(if($rtss.Count -gt 0){'GOOD'}else{'WARN'})) ($(if($rtss.Count -gt 0){'Running'}else{'Not detected'})))
+            (New-HaloSightCardState 'MSI Afterburner' ($(if($afterburner.Count -gt 0){'GOOD'}else{'WARN'})) ($(if($afterburner.Count -gt 0){'Running'}else{'Not detected'})))
+            (New-HaloSightCardState 'CapFrameX' ($(if($capFrameX.Count -gt 0){'GOOD'}else{'WARN'})) ($(if($capFrameX.Count -gt 0){'Running'}else{'Not detected'})))
+            (New-HaloSightCardState 'OBS' ($(if($obs.Count -gt 0){'GOOD'}else{'UNKNOWN'})) ($(if($obs.Count -gt 0){'Running'}else{'Not detected'})))
+            (New-HaloSightCardState 'Timer Resolution' $timerState ($(if($null -ne $timer){"$timer ms"}else{'Unavailable'})))
+            (New-HaloSightCardState 'Gaming Services' $serviceState ("$($runningServices.Count)/$($services.Count) running"))
+            (New-HaloSightCardState 'Audio/Sonar' ($(if($sonar.Count -gt 0){'GOOD'}else{'UNKNOWN'})) ($(if($sonar.Count -gt 0){($sonar.Names -join ', ')}else{'Not detected'})))
+            (New-HaloSightCardState 'Problem Devices' ($(if($problemDevices.Count -eq 0){'GOOD'}else{'WARN'})) ("$($problemDevices.Count) issue(s)"))
+            (New-HaloSightCardState 'Pending Reboot/Rename' $rebootState ("CBS=$cbsPending WU=$wuPending Rename=$renameCount"))
+            (New-HaloSightCardState 'Latest Upload Zip' $uploadState ($(if($latestZip){Split-Path -Leaf $latestZip}else{'None'})))
+        )
+    }
+}
+
+function ConvertTo-Multiline($items){
+    return (@($items) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join "`r`n"
+}
+
+function ConvertFrom-Multiline($text){
+    return @($text -split "(`r`n|`n|;)" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
 
 function New-Label($text, $row){
     $label = New-Object Windows.Controls.TextBlock
@@ -179,7 +258,9 @@ function Show-SettingsWindow {
             Save-HaloSightConfig $newConfig | Out-Null
             Reload-HSConfig
             [Windows.MessageBox]::Show('Settings saved.', 'HaloSight Settings') | Out-Null
-        }catch{ [Windows.MessageBox]::Show($_.Exception.Message, 'Settings Error') | Out-Null }
+        }catch{
+            [Windows.MessageBox]::Show($_.Exception.Message, 'Settings Error') | Out-Null
+        }
     })
 
     $reset.Add_Click({
@@ -202,10 +283,11 @@ function Show-SettingsWindow {
 
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="GPTOPT HaloSight GUI v0.4" Height="660" Width="1040"
+        Title="GPTOPT HaloSight GUI v0.4" Height="820" Width="1180"
         WindowStartupLocation="CenterScreen" Background="#111827">
   <Grid Margin="14">
     <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
@@ -219,35 +301,35 @@ function Show-SettingsWindow {
 
     <Grid Grid.Row="1" Margin="0,0,0,10">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
       <Grid.RowDefinitions>
-        <RowDefinition Height="44"/>
-        <RowDefinition Height="44"/>
+        <RowDefinition Height="44"/><RowDefinition Height="44"/>
       </Grid.RowDefinitions>
 
-      <Button Name="StartBtn" Grid.Row="0" Grid.Column="0" Margin="4" Content="Start Session" FontWeight="Bold"/>
-      <Button Name="StopBtn" Grid.Row="0" Grid.Column="1" Margin="4" Content="Stop + Build Upload" FontWeight="Bold"/>
-      <Button Name="StatusBtn" Grid.Row="0" Grid.Column="2" Margin="4" Content="Status"/>
-      <Button Name="ReportBtn" Grid.Row="0" Grid.Column="3" Margin="4" Content="Rebuild Report"/>
-      <Button Name="SettingsBtn" Grid.Row="0" Grid.Column="4" Margin="4" Content="Settings"/>
+      <Button Name="ReadyBtn" Grid.Row="0" Grid.Column="0" Margin="4" Content="Ready for Halo?" FontWeight="Bold"/>
+      <Button Name="RefreshBtn" Grid.Row="0" Grid.Column="1" Margin="4" Content="Refresh Status"/>
+      <Button Name="StartBtn" Grid.Row="0" Grid.Column="2" Margin="4" Content="Start Session" FontWeight="Bold"/>
+      <Button Name="StopBtn" Grid.Row="0" Grid.Column="3" Margin="4" Content="Stop + Build Upload" FontWeight="Bold"/>
+      <Button Name="StatusBtn" Grid.Row="0" Grid.Column="4" Margin="4" Content="Status"/>
+      <Button Name="SettingsBtn" Grid.Row="0" Grid.Column="5" Margin="4" Content="Settings"/>
 
-      <Button Name="OpenSessionBtn" Grid.Row="1" Grid.Column="0" Margin="4" Content="Open Latest Session"/>
-      <Button Name="OpenUploadBtn" Grid.Row="1" Grid.Column="1" Margin="4" Content="Open Upload Folder"/>
-      <Button Name="CopyZipBtn" Grid.Row="1" Grid.Column="2" Margin="4" Content="Copy Upload Zip Path"/>
-      <Button Name="ValidateBtn" Grid.Row="1" Grid.Column="3" Margin="4" Content="Validate Setup"/>
-      <Button Name="ClearBtn" Grid.Row="1" Grid.Column="4" Margin="4" Content="Clear Log"/>
+      <Button Name="ReportBtn" Grid.Row="1" Grid.Column="0" Margin="4" Content="Rebuild Report"/>
+      <Button Name="OpenSessionBtn" Grid.Row="1" Grid.Column="1" Margin="4" Content="Open Latest Session"/>
+      <Button Name="OpenUploadBtn" Grid.Row="1" Grid.Column="2" Margin="4" Content="Open Upload Folder"/>
+      <Button Name="CopyZipBtn" Grid.Row="1" Grid.Column="3" Margin="4" Content="Copy Upload Zip Path"/>
+      <Button Name="ValidateBtn" Grid.Row="1" Grid.Column="4" Margin="4" Content="Validate Setup"/>
+      <Button Name="ClearBtn" Grid.Row="1" Grid.Column="5" Margin="4" Content="Clear Log"/>
     </Grid>
 
-    <TextBox Name="LogBox" Grid.Row="2" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
+    <UniformGrid Name="DashboardGrid" Grid.Row="2" Columns="4" Margin="0,0,0,10"/>
+
+    <TextBox Name="LogBox" Grid.Row="3" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
              FontSize="13" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
              HorizontalScrollBarVisibility="Auto" AcceptsReturn="True"/>
 
-    <TextBlock Name="Footer" Grid.Row="3" Foreground="#94A3B8" Margin="0,8,0,0"
+    <TextBlock Name="Footer" Grid.Row="4" Foreground="#94A3B8" Margin="0,8,0,0"
                Text="Flow: Start Session -> play/capture match -> Stop + Build Upload -> send _UPLOAD.zip"/>
   </Grid>
 </Window>
@@ -255,8 +337,83 @@ function Show-SettingsWindow {
 
 $reader = New-Object System.Xml.XmlNodeReader $xaml
 $window = [Windows.Markup.XamlReader]::Load($reader)
+
 $LogBox = $window.FindName("LogBox")
 $Footer = $window.FindName("Footer")
+$DashboardGrid = $window.FindName("DashboardGrid")
+$DashboardCards = @{}
+
+function Get-HaloSightBadgeBrush($state){
+    switch($state){
+        'GOOD' { return '#166534' }
+        'WARN' { return '#A16207' }
+        'BAD' { return '#991B1B' }
+        default { return '#475569' }
+    }
+}
+
+function New-HaloSightDashboardCard($title){
+    $border = New-Object Windows.Controls.Border
+    $border.Margin = '4'
+    $border.Padding = '10'
+    $border.Background = '#0F172A'
+    $border.BorderBrush = '#334155'
+    $border.BorderThickness = '1'
+    $stack = New-Object Windows.Controls.StackPanel
+    $titleBlock = New-Object Windows.Controls.TextBlock
+    $titleBlock.Text = $title
+    $titleBlock.Foreground = '#CBD5E1'
+    $titleBlock.FontWeight = 'SemiBold'
+    $badge = New-Object Windows.Controls.TextBlock
+    $badge.Text = 'UNKNOWN'
+    $badge.Foreground = '#FFFFFF'
+    $badge.Background = (Get-HaloSightBadgeBrush 'UNKNOWN')
+    $badge.Padding = '6,2,6,2'
+    $badge.Margin = '0,6,0,4'
+    $badge.HorizontalAlignment = 'Left'
+    $detail = New-Object Windows.Controls.TextBlock
+    $detail.Text = 'Not checked'
+    $detail.Foreground = '#94A3B8'
+    $detail.TextWrapping = 'Wrap'
+    $stack.Children.Add($titleBlock) | Out-Null
+    $stack.Children.Add($badge) | Out-Null
+    $stack.Children.Add($detail) | Out-Null
+    $border.Child = $stack
+    $DashboardCards[$title] = [pscustomobject]@{ Badge=$badge; Detail=$detail }
+    $DashboardGrid.Children.Add($border) | Out-Null
+}
+
+function Set-HaloSightDashboardCard($title, $state, $detail){
+    if(!$DashboardCards.ContainsKey($title)){ return }
+    $DashboardCards[$title].Badge.Text = $state
+    $DashboardCards[$title].Badge.Background = Get-HaloSightBadgeBrush $state
+    $DashboardCards[$title].Detail.Text = $detail
+}
+
+function Update-HaloSightButtonStates($dashboardState){
+    $StartBtn = $window.FindName("StartBtn")
+    $StopBtn = $window.FindName("StopBtn")
+    $CopyZipBtn = $window.FindName("CopyZipBtn")
+    $OpenUploadBtn = $window.FindName("OpenUploadBtn")
+    $OpenSessionBtn = $window.FindName("OpenSessionBtn")
+    $active = [bool]$dashboardState.ActiveSession
+    $hasZip = -not [string]::IsNullOrWhiteSpace($dashboardState.LatestUploadZip)
+    $hasSession = -not [string]::IsNullOrWhiteSpace($dashboardState.LatestSession)
+    $StartBtn.IsEnabled = -not $active
+    $StopBtn.IsEnabled = $active
+    $CopyZipBtn.IsEnabled = $hasZip
+    $OpenUploadBtn.IsEnabled = $hasZip
+    $OpenSessionBtn.IsEnabled = $hasSession
+}
+
+function Update-HaloSightDashboardCards {
+    $dashboardState = Get-HaloSightDashboardState
+    foreach($card in $dashboardState.Cards){
+        Set-HaloSightDashboardCard $card.Title $card.State $card.Detail
+    }
+    Update-HaloSightButtonStates $dashboardState
+    return $dashboardState
+}
 
 function Append-Log($text){
     $stamp = Get-Date -Format "HH:mm:ss"
@@ -268,27 +425,100 @@ function Handle-UploadActions {
     $z = Get-LatestUploadZip
     if($z){
         $Footer.Text = "Upload package: $z"
-        if($Config.UI.AutoCopyUploadZipPath){ [System.Windows.Forms.Clipboard]::SetText($z); Append-Log "Copied upload zip path: $z" }
-        if($Config.UI.AutoOpenUploadFolder){ Start-Process explorer.exe $SessionRoot; Append-Log "Opened upload folder: $SessionRoot" }
+        if($Config.UI.AutoCopyUploadZipPath){
+            [System.Windows.Forms.Clipboard]::SetText($z)
+            Append-Log "Copied upload zip path: $z"
+        }
+        if($Config.UI.AutoOpenUploadFolder){
+            Start-Process explorer.exe $SessionRoot
+            Append-Log "Opened upload folder: $SessionRoot"
+        }
     }
+    Update-HaloSightDashboardCards | Out-Null
 }
 
-$window.FindName("StartBtn").Add_Click({ Append-Log "Starting session..."; Append-Log (Run-HS "start"); $Footer.Text = "Active session started." })
-$window.FindName("StopBtn").Add_Click({ Append-Log "Stopping session and building upload package..."; Append-Log (Run-HS "stop"); Handle-UploadActions })
-$window.FindName("StatusBtn").Add_Click({ Append-Log "Checking status..."; Append-Log (Run-HS "status") })
-$window.FindName("ReportBtn").Add_Click({ Append-Log "Rebuilding latest report/package..."; Append-Log (Run-HS "report"); Handle-UploadActions })
-$window.FindName("SettingsBtn").Add_Click({ Show-SettingsWindow })
+@('Active Session','Halo','RTSS','MSI Afterburner','CapFrameX','OBS','Timer Resolution','Gaming Services','Audio/Sonar','Problem Devices','Pending Reboot/Rename','Latest Upload Zip') |
+    ForEach-Object { New-HaloSightDashboardCard $_ }
+
+$window.FindName("StartBtn").Add_Click({
+    Append-Log "Starting session..."
+    $r = Run-HS "start"
+    Append-Log $r
+    $Footer.Text = "Active session started."
+    Update-HaloSightDashboardCards | Out-Null
+})
+
+$window.FindName("StopBtn").Add_Click({
+    Append-Log "Stopping session and building upload package..."
+    $r = Run-HS "stop"
+    Append-Log $r
+    Handle-UploadActions
+})
+
+$window.FindName("ReadyBtn").Add_Click({
+    Update-HaloSightDashboardCards | Out-Null
+    $Footer.Text = "Read-only readiness check refreshed."
+})
+
+$window.FindName("RefreshBtn").Add_Click({
+    Update-HaloSightDashboardCards | Out-Null
+    $Footer.Text = "Status refreshed."
+})
+
+$window.FindName("StatusBtn").Add_Click({
+    Append-Log "Checking status..."
+    Append-Log (Run-HS "status")
+    Update-HaloSightDashboardCards | Out-Null
+})
+
+$window.FindName("ReportBtn").Add_Click({
+    Append-Log "Rebuilding latest report/package..."
+    Append-Log (Run-HS "report")
+    Handle-UploadActions
+})
+
+$window.FindName("SettingsBtn").Add_Click({
+    Show-SettingsWindow
+})
+
 $window.FindName("ValidateBtn").Add_Click({
     $result = Test-HaloSightConfig
     if($result.IsValid){ Append-Log "Settings valid." }else{ Append-Log ("Settings errors: " + ($result.Errors -join '; ')) }
     if($result.Warnings.Count -gt 0){ Append-Log ("Settings warnings: " + ($result.Warnings -join '; ')) }
+    Update-HaloSightDashboardCards | Out-Null
 })
-$window.FindName("OpenSessionBtn").Add_Click({ $p = Get-LatestSessionPath; if($p){ Start-Process explorer.exe $p; Append-Log "Opened: $p" }else{ Append-Log "No session folder found." } })
-$window.FindName("OpenUploadBtn").Add_Click({ New-Item -ItemType Directory -Path $SessionRoot -Force | Out-Null; Start-Process explorer.exe $SessionRoot; Append-Log "Opened upload folder: $SessionRoot" })
-$window.FindName("CopyZipBtn").Add_Click({ $z = Get-LatestUploadZip; if($z){ [System.Windows.Forms.Clipboard]::SetText($z); Append-Log "Copied upload zip path: $z"; $Footer.Text = "Copied: $z" }else{ Append-Log "No _UPLOAD.zip found." } })
-$window.FindName("ClearBtn").Add_Click({ $LogBox.Clear() })
+
+$window.FindName("OpenSessionBtn").Add_Click({
+    $p = Get-LatestSessionPath
+    if($p){ Start-Process explorer.exe $p; Append-Log "Opened: $p" }
+    else{ Append-Log "No session folder found." }
+})
+
+$window.FindName("OpenUploadBtn").Add_Click({
+    New-Item -ItemType Directory -Path $SessionRoot -Force | Out-Null
+    Start-Process explorer.exe $SessionRoot
+    Append-Log "Opened upload folder: $SessionRoot"
+})
+
+$window.FindName("CopyZipBtn").Add_Click({
+    $z = Get-LatestUploadZip
+    if($z){
+        [System.Windows.Forms.Clipboard]::SetText($z)
+        Append-Log "Copied upload zip path: $z"
+        $Footer.Text = "Copied: $z"
+    } else {
+        Append-Log "No _UPLOAD.zip found."
+    }
+})
+
+$window.FindName("ClearBtn").Add_Click({
+    $LogBox.Clear()
+})
 
 Append-Log "HaloSight GUI ready."
 Append-Log "Use Settings before capture if you want to change evidence folders, limits, or upload behavior."
-if($OpenSettings){ $window.Add_ContentRendered({ Show-SettingsWindow }) }
+Update-HaloSightDashboardCards | Out-Null
+if($OpenSettings){
+    $window.Add_ContentRendered({ Show-SettingsWindow })
+}
 $window.ShowDialog() | Out-Null
