@@ -61,6 +61,79 @@ function New-HaloSightCardState($Title, $State, $Detail){
     [pscustomobject]@{ Title=$Title; State=$State; Detail=$Detail }
 }
 
+function Get-GPTOPTCommandPath {
+    param([string]$Name)
+    $cmd = Get-Command $Name -ErrorAction SilentlyContinue | Select-Object -First 1
+    if($cmd){ return $cmd.Source }
+    return $null
+}
+
+function Resolve-GPTOPTNvidiaProfileInspectorPath {
+    Reload-HSConfig
+    $override = $Config.OptionalTools.NvidiaProfileInspectorPath
+    if(-not [string]::IsNullOrWhiteSpace($override)){
+        $expanded = [Environment]::ExpandEnvironmentVariables($override)
+        if(Test-Path -LiteralPath $expanded){ return $expanded }
+        return $expanded
+    }
+    $cmd = Get-GPTOPTCommandPath 'nvidiaProfileInspector.exe'
+    if($cmd){ return $cmd }
+    $local = Join-Path $Root 'tools\nvidiaProfileInspector.exe'
+    if(Test-Path -LiteralPath $local){ return $local }
+    return $null
+}
+
+function Get-GPTOPTRegistryValue {
+    param([string]$Path, [string]$Name)
+    try{
+        $item = Get-ItemProperty -Path $Path -Name $Name -ErrorAction Stop
+        return $item.$Name
+    }catch{
+        return $null
+    }
+}
+
+function Get-GPTOPTActiveDisplayText {
+    try{
+        $primary = [System.Windows.Forms.Screen]::PrimaryScreen
+        $gpu = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Select-Object -First 1
+        $refresh = if($gpu -and $gpu.CurrentRefreshRate){ "$($gpu.CurrentRefreshRate)Hz" }else{ 'refresh unknown' }
+        if($primary){
+            return "$($primary.Bounds.Width)x$($primary.Bounds.Height) @ $refresh"
+        }
+    }catch{}
+    return 'Unavailable'
+}
+
+function Get-GPTOPTNvidiaDisplayState {
+    Reload-HSConfig
+    $gpu = @(Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'NVIDIA' } | Select-Object -First 1)
+    $smiPath = Get-GPTOPTCommandPath 'nvidia-smi.exe'
+    $npiPath = Resolve-GPTOPTNvidiaProfileInspectorPath
+    $npiExists = -not [string]::IsNullOrWhiteSpace($npiPath) -and (Test-Path -LiteralPath $npiPath)
+    $rtss = Test-HaloSightProcess @('RTSS')
+    $afterburner = Test-HaloSightProcess @('MSIAfterburner')
+    $hags = Get-GPTOPTRegistryValue 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers' 'HwSchMode'
+    $mpo = Get-GPTOPTRegistryValue 'HKLM:\SOFTWARE\Microsoft\Windows\Dwm' 'OverlayTestMode'
+
+    [pscustomobject]@{
+        NvidiaGpuDetected = $gpu.Count -gt 0
+        NvidiaGpuName = if($gpu.Count -gt 0){ $gpu[0].Name }else{ 'Not detected' }
+        DriverVersion = if($gpu.Count -gt 0 -and $gpu[0].DriverVersion){ $gpu[0].DriverVersion }else{ 'Unavailable' }
+        NvidiaSmiPath = if($smiPath){ $smiPath }else{ 'Not found' }
+        NvidiaSmiAvailable = [bool]$smiPath
+        NvidiaProfileInspectorPath = if($npiPath){ $npiPath }else{ 'Not found' }
+        NvidiaProfileInspectorAvailable = $npiExists
+        HagsValue = if($null -ne $hags){ [string]$hags }else{ 'Not set' }
+        MpoValue = if($null -ne $mpo){ [string]$mpo }else{ 'Not set' }
+        ActiveDisplay = Get-GPTOPTActiveDisplayText
+        RtssRunning = $rtss.Count -gt 0
+        RtssDetail = if($rtss.Count -gt 0){ 'Running' }else{ 'Not detected' }
+        AfterburnerRunning = $afterburner.Count -gt 0
+        AfterburnerDetail = if($afterburner.Count -gt 0){ 'Running' }else{ 'Not detected' }
+    }
+}
+
 function Get-HaloSightDashboardState {
     Reload-HSConfig
     $statePath = Join-Path $SessionRoot '_active_session.json'
@@ -86,6 +159,7 @@ function Get-HaloSightDashboardState {
     $timerState = if($null -eq $timer){ 'UNKNOWN' }elseif($timer -le 1.1){ 'GOOD' }elseif($timer -le 5){ 'WARN' }else{ 'BAD' }
     $rebootState = if($cbsPending -or $wuPending -or $renameCount -gt 0){ 'WARN' }else{ 'GOOD' }
     $uploadState = if($latestZip){ 'GOOD' }else{ 'UNKNOWN' }
+    $nvidia = Get-GPTOPTNvidiaDisplayState
 
     [pscustomobject]@{
         ActiveSession = $active
@@ -104,6 +178,9 @@ function Get-HaloSightDashboardState {
             (New-HaloSightCardState 'Problem Devices' ($(if($problemDevices.Count -eq 0){'GOOD'}else{'WARN'})) ("$($problemDevices.Count) issue(s)"))
             (New-HaloSightCardState 'Pending Reboot/Rename' $rebootState ("CBS=$cbsPending WU=$wuPending Rename=$renameCount"))
             (New-HaloSightCardState 'Latest Upload Zip' $uploadState ($(if($latestZip){Split-Path -Leaf $latestZip}else{'None'})))
+            (New-HaloSightCardState 'NVIDIA GPU' ($(if($nvidia.NvidiaGpuDetected){'GOOD'}else{'UNKNOWN'})) $nvidia.NvidiaGpuName)
+            (New-HaloSightCardState 'NVIDIA Driver' ($(if($nvidia.DriverVersion -ne 'Unavailable'){'GOOD'}else{'UNKNOWN'})) $nvidia.DriverVersion)
+            (New-HaloSightCardState 'NVIDIA Profile Inspector' ($(if($nvidia.NvidiaProfileInspectorAvailable){'GOOD'}else{'UNKNOWN'})) $nvidia.NvidiaProfileInspectorPath)
         )
     }
 }
@@ -266,55 +343,102 @@ function Show-SettingsWindow {
 
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="GPTOPT HaloSight GUI v0.4" Height="820" Width="1180"
+        Title="GPTOPT Control Center v0.5" Height="860" Width="1240"
         WindowStartupLocation="CenterScreen" Background="#111827">
-  <Grid Margin="14">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
-      <RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
-
-    <StackPanel Grid.Row="0" Margin="0,0,0,10">
-      <TextBlock Text="GPTOPT HaloSight" Foreground="#F9FAFB" FontSize="26" FontWeight="Bold"/>
-      <TextBlock Text="External Halo Infinite session capture. No injection. No browser closing. No Halo priority changes." Foreground="#CBD5E1" FontSize="13"/>
+  <DockPanel Margin="14">
+    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+      <TextBlock Text="GPTOPT Control Center" Foreground="#F9FAFB" FontSize="26" FontWeight="Bold"/>
+      <TextBlock Text="Audit-first gaming control center. Read-only NVIDIA / Display foundation. HaloSight remains external capture only." Foreground="#CBD5E1" FontSize="13"/>
     </StackPanel>
 
-    <Grid Grid.Row="1" Margin="0,0,0,10">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
-      </Grid.ColumnDefinitions>
-      <Grid.RowDefinitions>
-        <RowDefinition Height="44"/><RowDefinition Height="44"/>
-      </Grid.RowDefinitions>
+    <TextBlock Name="Footer" DockPanel.Dock="Bottom" Foreground="#94A3B8" Margin="0,8,0,0"
+               Text="Flow: Ready for Halo? -> Start Session -> play/capture match -> Stop + Build Upload -> send _UPLOAD.zip"/>
 
-      <Button Name="ReadyBtn" Grid.Row="0" Grid.Column="0" Margin="4" Content="Ready for Halo?" FontWeight="Bold"/>
-      <Button Name="RefreshBtn" Grid.Row="0" Grid.Column="1" Margin="4" Content="Refresh Status"/>
-      <Button Name="StartBtn" Grid.Row="0" Grid.Column="2" Margin="4" Content="Start Session" FontWeight="Bold"/>
-      <Button Name="StopBtn" Grid.Row="0" Grid.Column="3" Margin="4" Content="Stop + Build Upload" FontWeight="Bold"/>
-      <Button Name="StatusBtn" Grid.Row="0" Grid.Column="4" Margin="4" Content="Status"/>
-      <Button Name="SettingsBtn" Grid.Row="0" Grid.Column="5" Margin="4" Content="Settings"/>
+    <TabControl Name="MainTabs" Background="#111827" BorderBrush="#334155">
+      <TabItem Header="Dashboard">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="0,10,0,0">
+            <UniformGrid Name="DashboardGrid" Columns="3" Margin="0,0,0,10"/>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
 
-      <Button Name="ReportBtn" Grid.Row="1" Grid.Column="0" Margin="4" Content="Rebuild Report"/>
-      <Button Name="OpenSessionBtn" Grid.Row="1" Grid.Column="1" Margin="4" Content="Open Latest Session"/>
-      <Button Name="OpenUploadBtn" Grid.Row="1" Grid.Column="2" Margin="4" Content="Open Upload Folder"/>
-      <Button Name="CopyZipBtn" Grid.Row="1" Grid.Column="3" Margin="4" Content="Copy Upload Zip Path"/>
-      <Button Name="ValidateBtn" Grid.Row="1" Grid.Column="4" Margin="4" Content="Validate Setup"/>
-      <Button Name="ClearBtn" Grid.Row="1" Grid.Column="5" Margin="4" Content="Clear Log"/>
-    </Grid>
+      <TabItem Header="HaloSight">
+        <Grid Margin="0,10,0,0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="44"/><RowDefinition Height="44"/>
+            </Grid.RowDefinitions>
 
-    <UniformGrid Name="DashboardGrid" Grid.Row="2" Columns="4" Margin="0,0,0,10"/>
+            <Button Name="ReadyBtn" Grid.Row="0" Grid.Column="0" Margin="4" Content="Ready for Halo?" FontWeight="Bold"/>
+            <Button Name="RefreshBtn" Grid.Row="0" Grid.Column="1" Margin="4" Content="Refresh Status"/>
+            <Button Name="StartBtn" Grid.Row="0" Grid.Column="2" Margin="4" Content="Start Session" FontWeight="Bold"/>
+            <Button Name="StopBtn" Grid.Row="0" Grid.Column="3" Margin="4" Content="Stop + Build Upload" FontWeight="Bold"/>
+            <Button Name="StatusBtn" Grid.Row="0" Grid.Column="4" Margin="4" Content="Status"/>
+            <Button Name="SettingsBtn" Grid.Row="0" Grid.Column="5" Margin="4" Content="Settings"/>
 
-    <TextBox Name="LogBox" Grid.Row="3" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
-             FontSize="13" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
-             HorizontalScrollBarVisibility="Auto" AcceptsReturn="True"/>
+            <Button Name="ReportBtn" Grid.Row="1" Grid.Column="0" Margin="4" Content="Rebuild Report"/>
+            <Button Name="OpenSessionBtn" Grid.Row="1" Grid.Column="1" Margin="4" Content="Open Latest Session"/>
+            <Button Name="OpenUploadBtn" Grid.Row="1" Grid.Column="2" Margin="4" Content="Open Upload Folder"/>
+            <Button Name="CopyZipBtn" Grid.Row="1" Grid.Column="3" Margin="4" Content="Copy Upload Zip Path"/>
+            <Button Name="ValidateBtn" Grid.Row="1" Grid.Column="4" Margin="4" Content="Validate Setup"/>
+            <Button Name="ClearBtn" Grid.Row="1" Grid.Column="5" Margin="4" Content="Clear Log"/>
+          </Grid>
 
-    <TextBlock Name="Footer" Grid.Row="4" Foreground="#94A3B8" Margin="0,8,0,0"
-               Text="Flow: Start Session -> play/capture match -> Stop + Build Upload -> send _UPLOAD.zip"/>
-  </Grid>
+          <TextBox Name="LogBox" Grid.Row="1" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
+                   FontSize="13" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                   HorizontalScrollBarVisibility="Auto" AcceptsReturn="True"/>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="NVIDIA / Display">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <Grid Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="260"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="Read-only NVIDIA / Display audit" Foreground="#F9FAFB" FontSize="18" FontWeight="Bold" Margin="0,0,0,12"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="NVIDIA GPU detected" Foreground="#CBD5E1" Margin="0,5,12,5"/>
+            <TextBlock Name="NvidiaGpuValue" Grid.Row="1" Grid.Column="1" Foreground="#F9FAFB" Text="Not checked" TextWrapping="Wrap" Margin="0,5,0,5"/>
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="NVIDIA driver version" Foreground="#CBD5E1" Margin="0,5,12,5"/>
+            <TextBlock Name="NvidiaDriverValue" Grid.Row="2" Grid.Column="1" Foreground="#F9FAFB" Text="Not checked" TextWrapping="Wrap" Margin="0,5,0,5"/>
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="nvidia-smi" Foreground="#CBD5E1" Margin="0,5,12,5"/>
+            <TextBlock Name="NvidiaSmiValue" Grid.Row="3" Grid.Column="1" Foreground="#F9FAFB" Text="Not checked" TextWrapping="Wrap" Margin="0,5,0,5"/>
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="NVIDIA Profile Inspector" Foreground="#CBD5E1" Margin="0,5,12,5"/>
+            <TextBlock Name="NvidiaProfileInspectorValue" Grid.Row="4" Grid.Column="1" Foreground="#F9FAFB" Text="Not checked" TextWrapping="Wrap" Margin="0,5,0,5"/>
+            <TextBlock Grid.Row="5" Grid.Column="0" Text="HAGS / MPO" Foreground="#CBD5E1" Margin="0,5,12,5"/>
+            <TextBlock Name="NvidiaHagsMpoValue" Grid.Row="5" Grid.Column="1" Foreground="#F9FAFB" Text="Not checked" TextWrapping="Wrap" Margin="0,5,0,5"/>
+            <TextBlock Grid.Row="6" Grid.Column="0" Text="Active display" Foreground="#CBD5E1" Margin="0,5,12,5"/>
+            <TextBlock Name="NvidiaDisplayValue" Grid.Row="6" Grid.Column="1" Foreground="#F9FAFB" Text="Not checked" TextWrapping="Wrap" Margin="0,5,0,5"/>
+            <TextBlock Grid.Row="7" Grid.Column="0" Text="RTSS / MSI Afterburner" Foreground="#CBD5E1" Margin="0,5,12,5"/>
+            <TextBlock Name="NvidiaOverlayValue" Grid.Row="7" Grid.Column="1" Foreground="#F9FAFB" Text="Not checked" TextWrapping="Wrap" Margin="0,5,0,5"/>
+            <TextBlock Grid.Row="8" Grid.ColumnSpan="2" Text="This PR does not write NVIDIA profiles, import profile files, run silent profile imports, or change global NVIDIA driver settings." Foreground="#94A3B8" TextWrapping="Wrap" Margin="0,14,0,0"/>
+          </Grid>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Audio / Sonar"><TextBlock Foreground="#94A3B8" Margin="10" Text="Foundation page. Read-only controls will land in a later PR."/></TabItem>
+      <TabItem Header="Controller / HID"><TextBlock Foreground="#94A3B8" Margin="10" Text="Foundation page. Read-only controls will land in a later PR."/></TabItem>
+      <TabItem Header="Windows Gaming Health"><TextBlock Foreground="#94A3B8" Margin="10" Text="Foundation page. Read-only controls will land in a later PR."/></TabItem>
+      <TabItem Header="Apps / Tools"><TextBlock Foreground="#94A3B8" Margin="10" Text="Foundation page. Read-only controls will land in a later PR."/></TabItem>
+      <TabItem Header="Reports"><TextBlock Foreground="#94A3B8" Margin="10" Text="Foundation page. Read-only controls will land in a later PR."/></TabItem>
+      <TabItem Header="Advanced / Revert"><TextBlock Foreground="#94A3B8" Margin="10" Text="Foundation page. Reversible actions will require explicit audit and confirmation in later PRs."/></TabItem>
+    </TabControl>
+  </DockPanel>
 </Window>
 "@
 
@@ -327,6 +451,13 @@ $DashboardGrid = $window.FindName("DashboardGrid")
 $DashboardCards = @{}
 $script:HaloSightCommandRunning = $false
 $script:HaloSightRunningProcess = $null
+$NvidiaGpuValue = $window.FindName("NvidiaGpuValue")
+$NvidiaDriverValue = $window.FindName("NvidiaDriverValue")
+$NvidiaSmiValue = $window.FindName("NvidiaSmiValue")
+$NvidiaProfileInspectorValue = $window.FindName("NvidiaProfileInspectorValue")
+$NvidiaHagsMpoValue = $window.FindName("NvidiaHagsMpoValue")
+$NvidiaDisplayValue = $window.FindName("NvidiaDisplayValue")
+$NvidiaOverlayValue = $window.FindName("NvidiaOverlayValue")
 
 function Get-HaloSightBadgeBrush($state){
     switch($state){
@@ -410,8 +541,20 @@ function Update-HaloSightDashboardCards {
     foreach($card in $dashboardState.Cards){
         Set-HaloSightDashboardCard $card.Title $card.State $card.Detail
     }
+    Update-GPTOPTNvidiaDisplayPage
     Update-HaloSightButtonStates $dashboardState
     return $dashboardState
+}
+
+function Update-GPTOPTNvidiaDisplayPage {
+    $state = Get-GPTOPTNvidiaDisplayState
+    $NvidiaGpuValue.Text = if($state.NvidiaGpuDetected){ $state.NvidiaGpuName }else{ 'No NVIDIA GPU detected' }
+    $NvidiaDriverValue.Text = $state.DriverVersion
+    $NvidiaSmiValue.Text = if($state.NvidiaSmiAvailable){ "Available: $($state.NvidiaSmiPath)" }else{ 'Not found on PATH' }
+    $NvidiaProfileInspectorValue.Text = if($state.NvidiaProfileInspectorAvailable){ "Available: $($state.NvidiaProfileInspectorPath)" }else{ "Not found: $($state.NvidiaProfileInspectorPath)" }
+    $NvidiaHagsMpoValue.Text = "HAGS=$($state.HagsValue) MPO=$($state.MpoValue)"
+    $NvidiaDisplayValue.Text = $state.ActiveDisplay
+    $NvidiaOverlayValue.Text = "RTSS=$($state.RtssDetail) MSI Afterburner=$($state.AfterburnerDetail)"
 }
 
 function Append-Log($text){
@@ -516,7 +659,7 @@ function Handle-UploadActions {
     Update-HaloSightDashboardCards | Out-Null
 }
 
-@('Active Session','Halo','RTSS','MSI Afterburner','CapFrameX','OBS','Timer Resolution','Gaming Services','Audio/Sonar','Problem Devices','Pending Reboot/Rename','Latest Upload Zip') |
+@('Active Session','Halo','RTSS','MSI Afterburner','CapFrameX','OBS','Timer Resolution','Gaming Services','Audio/Sonar','Problem Devices','Pending Reboot/Rename','Latest Upload Zip','NVIDIA GPU','NVIDIA Driver','NVIDIA Profile Inspector') |
     ForEach-Object { New-HaloSightDashboardCard $_ }
 
 $window.FindName("StartBtn").Add_Click({
