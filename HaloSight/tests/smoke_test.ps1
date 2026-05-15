@@ -2,10 +2,10 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
-$RepoRoot = Split-Path -Parent $Root
 $CoreScript = Join-Path $Root 'scripts\HaloSight.ps1'
 $SettingsScript = Join-Path $Root 'scripts\HaloSightSettings.ps1'
 $UserConfigPath = Join-Path $Root 'config\halosight.user.json'
+$RepoRoot = Split-Path -Parent $Root
 $LauncherPath = Join-Path $Root 'GPTOPT_LAUNCHER.cmd'
 if(!(Test-Path -LiteralPath $LauncherPath)){ $LauncherPath = Join-Path $RepoRoot 'GPTOPT_LAUNCHER.cmd' }
 $RunGptOptPath = Join-Path $Root 'Run-GPTOPT.ps1'
@@ -22,7 +22,6 @@ function Assert-Parses($Path){
 
 Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.ps1' |
     ForEach-Object { Assert-Parses $_.FullName }
-Assert-Parses $RunGptOptPath
 
 Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.json' |
     ForEach-Object { $null = Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json }
@@ -62,7 +61,7 @@ try{
 }
 
 $launcherText = Get-Content -Raw -LiteralPath $LauncherPath
-Assert ($launcherText -match 'Run-GPTOPT\.ps1|HaloSightGUI\.ps1') 'GPTOPT_LAUNCHER.cmd must launch the GUI path.'
+Assert ($launcherText -match 'HaloSightGUI\.ps1') 'GPTOPT_LAUNCHER.cmd must launch the GUI.'
 Assert ($launcherText -notmatch '(?i):menu|set /p|Select an option|HaloSight Start|HaloSight Stop|HaloSight Status|HaloSight Settings|Run Smoke Test') 'GPTOPT_LAUNCHER.cmd contains old menu workflow.'
 Assert ($launcherText -notmatch '(?i)HaloSight\.ps1"\s+-Mode\s+(start|stop|status|report)') 'GPTOPT_LAUNCHER.cmd exposes direct HaloSight modes.'
 
@@ -70,6 +69,18 @@ $runText = Get-Content -Raw -LiteralPath $RunGptOptPath
 Assert ($runText -match '\[ValidateSet\(''gui'',''test''\)\]') 'Run-GPTOPT.ps1 must only expose gui/test modes.'
 Assert ($runText -match '\[string\]\$Mode\s*=\s*''gui''') 'Run-GPTOPT.ps1 must default to GUI mode.'
 Assert ($runText -notmatch "(?i)'(start|stop|status|settings)'") 'Run-GPTOPT.ps1 exposes removed normal-user modes.'
+
+$guiText = Get-Content -Raw -LiteralPath (Join-Path $Root 'scripts\HaloSightGUI.ps1')
+Assert ($guiText -match 'function Get-HaloSightDashboardState') 'Dashboard state function missing.'
+Assert ($guiText -match 'function Update-HaloSightDashboardCards') 'Dashboard update function missing.'
+Assert ($guiText -match 'function Update-HaloSightButtonStates') 'State-aware button function missing.'
+Assert ($guiText -match 'ReadyBtn') 'Ready for Halo button missing.'
+Assert ($guiText -match 'RefreshBtn') 'Refresh Status button missing.'
+Assert ($guiText -match 'Active Session' -and $guiText -match 'Latest Upload Zip') 'Required dashboard cards missing.'
+$readyHandler = [regex]::Match($guiText, '(?s)\$window\.FindName\("ReadyBtn"\)\.Add_Click\(\{(?<body>.*?)\}\)')
+Assert $readyHandler.Success 'Ready for Halo handler missing.'
+Assert ($readyHandler.Groups['body'].Value -match 'Update-HaloSightDashboardCards') 'Ready for Halo must update dashboard cards.'
+Assert ($readyHandler.Groups['body'].Value -notmatch 'Run-HS|Start-Process|Save-HaloSightConfig|Reset-HaloSightConfig|HaloSight\.ps1') 'Ready for Halo must remain read-only.'
 
 $runtimeFiles = Get-ChildItem -LiteralPath $Root -Recurse -File |
     Where-Object {
