@@ -27,6 +27,7 @@ if ($Audit) {
     } else {
         Write-Host "Current $Name value: $($current.$Name)"
     }
+
     return
 }
 
