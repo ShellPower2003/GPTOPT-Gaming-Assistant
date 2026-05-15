@@ -1,4 +1,36 @@
+# Archives / binaries
 *.zip
+*.7z
+*.rar
 *.exe
-__pycache__/
+*.msi
+
+# Logs / reports
 *.log
+*.etl
+*.dmp
+*.tmp
+
+# PowerShell local artifacts
+*.ps1xml.tmp
+*.clixml
+
+# HaloSight local user/runtime data
+HaloSight/config/halosight.user.json
+HaloSight/sessions/
+HaloSight/uploads/
+HaloSight/evidence/
+config/halosight.user.json
+sessions/
+uploads/
+evidence/
+
+# Python / tooling
+__pycache__/
+.pytest_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
