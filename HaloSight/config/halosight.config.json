@@ -1,0 +1,30 @@
+{
+  "Project": "GPTOPT-HaloSight",
+  "GameProcess": "HaloInfinite",
+  "LeaveBrowserOpen": true,
+  "NeverTouchProcesses": ["HaloInfinite", "steam", "RTSS", "MSIAfterburner", "CapFrameX", "chrome", "msedge"],
+  "SessionRoot": "%USERPROFILE%\\Documents\\GPTOPT\\HaloSight\\sessions",
+  "SearchRoots": [
+    "%USERPROFILE%\\Documents\\CapFrameX",
+    "%USERPROFILE%\\Videos",
+    "%USERPROFILE%\\Desktop",
+    "%USERPROFILE%\\Downloads"
+  ],
+  "CaptureFilePatterns": ["CapFrameX-HaloInfinite*.zip", "*.mp4", "*.mkv", "*.csv", "*.json"],
+  "Evidence": {
+    "MaxFiles": 50,
+    "MaxFileMB": 1500,
+    "ExcludeDirectoryNames": ["node_modules", ".git", "AppData", "Windows", "Program Files", "Program Files (x86)"]
+  },
+  "OptionalTools": {
+    "PresentMonExe": "tools\\PresentMon.exe",
+    "FfmpegExe": "ffmpeg.exe"
+  },
+  "VideoCompress": {
+    "Enabled": true,
+    "MaxMinutes": 5,
+    "Bitrate": "8000k",
+    "Resolution": "1920:1080",
+    "FPS": 60
+  }
+}
