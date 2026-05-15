@@ -7,6 +7,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate toolkit
@@ -37,12 +40,25 @@ jobs:
       - name: Install PSScriptAnalyzer
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
 
-      - name: Run PSScriptAnalyzer
+      - name: Run strict PSScriptAnalyzer
         shell: pwsh
         run: |
-          Invoke-ScriptAnalyzer -Path . -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+          $ErrorActionPreference = 'Stop'
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+          if ($results) {
+            $results | Format-Table -AutoSize
+            throw "PSScriptAnalyzer found $($results.Count) issue(s)."
+          }
+          Write-Host '[OK] PSScriptAnalyzer found no issues.'
+
+      - name: Run security policy scan
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./tests/security_policy.ps1
 
       - name: Run HaloSight smoke test
         shell: powershell
