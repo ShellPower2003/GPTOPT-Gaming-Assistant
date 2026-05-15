@@ -6,16 +6,13 @@ param(
 $ErrorActionPreference = 'Continue'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RootDir = Split-Path -Parent $ScriptDir
-$ConfigPath = Join-Path $RootDir 'config\halosight.config.json'
-$WatchedProcesses = @('HaloInfinite','RTSS','MSIAfterburner','CapFrameX','steam','obs64','SteelSeriesSonar','SteelSeriesEngine','CC_Engine_x64','audiodg','dwm','MsMpEng','GameControllerService','chrome','msedge')
-$WatchedServices = @('GamingServices','GamingServicesNet','XblAuthManager','XboxGipSvc','GameInputSvc','Audiosrv','AudioEndpointBuilder','SteamService')
+. (Join-Path $ScriptDir 'HaloSightSettings.ps1')
 
 function OK($m){ Write-Host "[OK]   $m" -ForegroundColor Green }
 function WARN($m){ Write-Host "[WARN] $m" -ForegroundColor Yellow }
 function BAD($m){ Write-Host "[BAD]  $m" -ForegroundColor Red }
 function ACT($m){ Write-Host "[DO]   $m" -ForegroundColor Yellow }
 function INF($m){ Write-Host "[INFO] $m" -ForegroundColor Cyan }
-
 function Expand-Env($s){ [Environment]::ExpandEnvironmentVariables($s) }
 
 function Get-CfgValue($Path, $Default){
@@ -41,14 +38,9 @@ function Resolve-ToolPath($Tool){
     return $null
 }
 
-function Load-Config {
-    if(Test-Path $ConfigPath){
-        return Get-Content $ConfigPath -Raw | ConvertFrom-Json
-    }
-    throw "Missing config: $ConfigPath"
-}
-
-$Cfg = Load-Config
+$Cfg = Get-HaloSightConfig
+$WatchedProcesses = @($Cfg.WatchedProcesses)
+$WatchedServices = @($Cfg.WatchedServices)
 $SessionRoot = Expand-Env $Cfg.SessionRoot
 $StatePath = Join-Path $SessionRoot '_active_session.json'
 New-Item -ItemType Directory -Force -Path $SessionRoot | Out-Null
@@ -71,7 +63,7 @@ public class HS_Timer {
 }
 
 function Export-Object($obj, $path){
-    try{ $obj | ConvertTo-Json -Depth 8 | Out-File -FilePath $path -Encoding UTF8 }catch{ BAD "Failed writing $path : $($_.Exception.Message)" }
+    try{ $obj | ConvertTo-Json -Depth 20 | Out-File -FilePath $path -Encoding UTF8 }catch{ BAD "Failed writing $path : $($_.Exception.Message)" }
 }
 
 function Get-CoreState {
@@ -100,7 +92,6 @@ function Get-CoreState {
 function Export-Snapshot($SessionDir, $Tag){
     $SnapDir = Join-Path $SessionDir $Tag
     New-Item -ItemType Directory -Force -Path $SnapDir | Out-Null
-
     Export-Object (Get-CoreState) (Join-Path $SnapDir 'core_state.json')
 
     Get-Process -ErrorAction SilentlyContinue |
@@ -108,13 +99,17 @@ function Export-Snapshot($SessionDir, $Tag){
         Select-Object -First 80 ProcessName,Id,PriorityClass,CPU,@{n='RAM_MB';e={[math]::Round($_.WorkingSet64/1MB,1)}},Path |
         Export-Csv (Join-Path $SnapDir 'process_top.csv') -NoTypeInformation
 
-    Get-Process $WatchedProcesses -ErrorAction SilentlyContinue |
-        Select-Object ProcessName,Id,PriorityClass,CPU,@{n='RAM_MB';e={[math]::Round($_.WorkingSet64/1MB,1)}},Path |
-        Export-Csv (Join-Path $SnapDir 'watched_processes.csv') -NoTypeInformation
+    if($WatchedProcesses.Count -gt 0){
+        Get-Process $WatchedProcesses -ErrorAction SilentlyContinue |
+            Select-Object ProcessName,Id,PriorityClass,CPU,@{n='RAM_MB';e={[math]::Round($_.WorkingSet64/1MB,1)}},Path |
+            Export-Csv (Join-Path $SnapDir 'watched_processes.csv') -NoTypeInformation
+    }
 
-    Get-Service $WatchedServices -ErrorAction SilentlyContinue |
-        Select-Object Name,DisplayName,Status,StartType |
-        Export-Csv (Join-Path $SnapDir 'services.csv') -NoTypeInformation
+    if($WatchedServices.Count -gt 0){
+        Get-Service $WatchedServices -ErrorAction SilentlyContinue |
+            Select-Object Name,DisplayName,Status,StartType |
+            Export-Csv (Join-Path $SnapDir 'services.csv') -NoTypeInformation
+    }
 
     Get-PnpDevice -ErrorAction SilentlyContinue |
         Where-Object { $_.Status -notin @('OK','Unknown') } |
@@ -129,11 +124,8 @@ function Export-Snapshot($SessionDir, $Tag){
         Select-Object Name,DriverVersion,CurrentHorizontalResolution,CurrentVerticalResolution,CurrentRefreshRate |
         Export-Csv (Join-Path $SnapDir 'video_controllers.csv') -NoTypeInformation
 
-    $nvsmi = @(
-        "$env:ProgramFiles\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
-        "$env:SystemRoot\System32\nvidia-smi.exe",
-        'nvidia-smi.exe'
-    ) | ForEach-Object { Resolve-ToolPath $_ } | Where-Object { $_ } | Select-Object -First 1
+    $nvsmi = @("$env:ProgramFiles\NVIDIA Corporation\NVSMI\nvidia-smi.exe", "$env:SystemRoot\System32\nvidia-smi.exe", 'nvidia-smi.exe') |
+        ForEach-Object { Resolve-ToolPath $_ } | Where-Object { $_ } | Select-Object -First 1
     if($nvsmi){
         try{ & $nvsmi --query-gpu=name,driver_version,temperature.gpu,utilization.gpu,power.draw,clocks.gr,clocks.mem,memory.used,memory.total,fan.speed --format=csv,noheader,nounits | Out-File (Join-Path $SnapDir 'nvidia_smi.txt') -Encoding UTF8 }catch{}
     }
@@ -149,6 +141,8 @@ function Find-NewEvidence($StartTime){
     $patterns = @($Cfg.CaptureFilePatterns)
     $maxFiles = [int](Get-CfgValue 'Evidence.MaxFiles' 50)
     $maxMB = [double](Get-CfgValue 'Evidence.MaxFileMB' 1500)
+    $copyVideos = [bool](Get-CfgValue 'Evidence.CopyVideos' $true)
+    $videoExtensions = @((Get-CfgValue 'Evidence.VideoExtensions' @('.mp4','.mkv','.mov')) | ForEach-Object { [string]$_ })
     $excludedNames = @((Get-CfgValue 'Evidence.ExcludeDirectoryNames' @()) | ForEach-Object { [string]$_ })
     foreach($rootRaw in $Cfg.SearchRoots){
         $root = Expand-Env $rootRaw
@@ -159,25 +153,20 @@ function Find-NewEvidence($StartTime){
                     if($_.LastWriteTime -lt $StartTime){ return $false }
                     if(($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){ return $false }
                     if($maxMB -gt 0 -and ($_.Length / 1MB) -gt $maxMB){ return $false }
-                    foreach($name in $excludedNames){
-                        if($_.FullName -like "*\$name\*"){ return $false }
-                    }
+                    foreach($name in $excludedNames){ if($_.FullName -like "*\$name\*"){ return $false } }
                     foreach($pat in $patterns){
-                        if($_.Name -like $pat){ return $true }
+                        if($_.Name -like $pat){
+                            if(!$copyVideos -and $videoExtensions -contains $_.Extension.ToLowerInvariant()){ return $false }
+                            return $true
+                        }
                     }
                     return $false
                 } |
                 Select-Object FullName,Name,Length,LastWriteTime |
                 ForEach-Object { $items.Add($_) }
-        }catch{
-            WARN "Evidence scan skipped root '$root': $($_.Exception.Message)"
-        }
+        }catch{ WARN "Evidence scan skipped root '$root': $($_.Exception.Message)" }
     }
-    $items |
-        Group-Object FullName |
-        ForEach-Object { $_.Group | Select-Object -First 1 } |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -First $maxFiles
+    $items | Group-Object FullName | ForEach-Object { $_.Group | Select-Object -First 1 } | Sort-Object LastWriteTime -Descending | Select-Object -First $maxFiles
 }
 
 function Copy-Evidence($SessionDir, $StartTime){
@@ -189,9 +178,7 @@ function Copy-Evidence($SessionDir, $StartTime){
         $safe = ($i.Name -replace '[^a-zA-Z0-9._() -]','_')
         $dest = Join-Path $EvidenceDir $safe
         $n=1
-        while(Test-Path $dest){
-            $dest = Join-Path $EvidenceDir ("{0}_{1}{2}" -f [IO.Path]::GetFileNameWithoutExtension($safe),$n,[IO.Path]::GetExtension($safe)); $n++
-        }
+        while(Test-Path $dest){ $dest = Join-Path $EvidenceDir ("{0}_{1}{2}" -f [IO.Path]::GetFileNameWithoutExtension($safe),$n,[IO.Path]::GetExtension($safe)); $n++ }
         try{
             Copy-Item -LiteralPath $i.FullName -Destination $dest -Force
             $manifest += [pscustomobject]@{ Source=$i.FullName; CopiedTo=$dest; SizeMB=[math]::Round($i.Length/1MB,1); LastWriteTime=$i.LastWriteTime }
@@ -204,6 +191,7 @@ function Copy-Evidence($SessionDir, $StartTime){
 }
 
 function Compress-LatestVideo($SessionDir){
+    if(-not (Get-CfgValue 'Evidence.CopyVideos' $true)){ return }
     if(-not $Cfg.VideoCompress.Enabled){ return }
     $ff = Resolve-ToolPath $Cfg.OptionalTools.FfmpegExe
     if(!$ff){ WARN 'ffmpeg not found; skipping video compression'; return }
@@ -221,20 +209,12 @@ function Compress-LatestVideo($SessionDir){
 }
 
 function New-Report($SessionDir){
-    $pre = Join-Path $SessionDir 'start\core_state.json'
     $post = Join-Path $SessionDir 'stop\core_state.json'
     $manifestPath = Join-Path $SessionDir 'evidence_manifest.csv'
-    $preObj = if(Test-Path $pre){ Get-Content $pre -Raw | ConvertFrom-Json }else{$null}
     $postObj = if(Test-Path $post){ Get-Content $post -Raw | ConvertFrom-Json }else{$null}
     $manifest = if(Test-Path $manifestPath){ Import-Csv $manifestPath }else{@()}
     $report = Join-Path $SessionDir 'HaloSight_Report.md'
-    $lines = @()
-    $lines += '# HaloSight Session Report'
-    $lines += ''
-    $lines += "Session: $(Split-Path -Leaf $SessionDir)"
-    $lines += "Generated: $((Get-Date).ToString('o'))"
-    $lines += ''
-    $lines += '## Core State'
+    $lines = @('# HaloSight Session Report','',"Session: $(Split-Path -Leaf $SessionDir)","Generated: $((Get-Date).ToString('o'))",'', '## Core State')
     if($postObj){
         $lines += "- Timer resolution: $($postObj.TimerResolutionMs) ms"
         $lines += "- Power plan: $($postObj.ActivePowerPlan)"
@@ -245,15 +225,9 @@ function New-Report($SessionDir){
         $lines += "- Windows Update reboot required: $($postObj.WURebootRequired)"
         $lines += "- Pending rename count: $(@($postObj.PendingRenameEntries).Count)"
     }
-    $lines += ''
-    $lines += '## Evidence Files'
-    if($manifest.Count -gt 0){
-        foreach($m in $manifest){ $lines += "- $($m.SizeMB) MB - $($m.Source)" }
-    }else{ $lines += '- None copied. Start/stop may not have enclosed a new capture/video file.' }
-    $lines += ''
-    $lines += '## Notes'
-    $lines += '- External-only. No injection, no memory read, no Halo priority change, no browser cleanup.'
-    $lines += '- Upload the `_UPLOAD.zip` to ChatGPT for analysis.'
+    $lines += ''; $lines += '## Evidence Files'
+    if($manifest.Count -gt 0){ foreach($m in $manifest){ $lines += "- $($m.SizeMB) MB - $($m.Source)" } }else{ $lines += '- None copied. Start/stop may not have enclosed a new capture/video file.' }
+    $lines += ''; $lines += '## Notes'; $lines += '- External-only. No injection, no memory read, no Halo priority change, no browser cleanup.'; $lines += '- Upload the `_UPLOAD.zip` to ChatGPT for analysis.'
     $lines | Out-File $report -Encoding UTF8
     return $report
 }
@@ -299,16 +273,11 @@ function Stop-Session {
 
 function Show-Status {
     Write-Host "`n=== GPTOPT HALOSIGHT STATUS ===`n" -ForegroundColor Cyan
-    if(Test-Path $StatePath){
-        $s = Get-Content $StatePath -Raw | ConvertFrom-Json
-        OK "Active session: $($s.SessionDir)"
-        INF "Started: $($s.StartTime)"
-    }else{ WARN 'No active session' }
+    if(Test-Path $StatePath){ $s = Get-Content $StatePath -Raw | ConvertFrom-Json; OK "Active session: $($s.SessionDir)"; INF "Started: $($s.StartTime)" }else{ WARN 'No active session' }
     Write-Host "`nCore:" -ForegroundColor Cyan
     Get-CoreState | Format-List
     Write-Host "`nWatched processes:" -ForegroundColor Cyan
-    Get-Process $WatchedProcesses -ErrorAction SilentlyContinue |
-        Select ProcessName,Id,PriorityClass,@{n='RAM_MB';e={[math]::Round($_.WorkingSet64/1MB,1)}} | Format-Table -AutoSize
+    if($WatchedProcesses.Count -gt 0){ Get-Process $WatchedProcesses -ErrorAction SilentlyContinue | Select ProcessName,Id,PriorityClass,@{n='RAM_MB';e={[math]::Round($_.WorkingSet64/1MB,1)}} | Format-Table -AutoSize }
 }
 
 switch($Mode){
