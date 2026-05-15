@@ -19,5 +19,15 @@
             Kind = 'space'
             IndentationSize = 4
         }
+
+        PSUseConsistentWhitespace = @{
+            Enable = $true
+            CheckOpenBrace = $true
+            CheckOpenParen = $true
+            CheckOperator = $true
+            CheckPipe = $true
+            CheckPipeForRedundantWhitespace = $true
+            CheckSeparator = $true
+        }
     }
 }
