@@ -158,3 +158,4 @@ switch ($Mode) {
         Write-Step 'Reset complete.'
     }
 }
+

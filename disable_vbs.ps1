@@ -46,3 +46,4 @@ if ($PSCmdlet.ShouldProcess($Path, "Set $Name to 0")) {
     Set-ItemProperty -Path $Path -Name $Name -Value 0 -Type DWord
     Write-Host 'VBS registry setting changed. Restart Windows for the change to fully apply.' -ForegroundColor Yellow
 }
+
