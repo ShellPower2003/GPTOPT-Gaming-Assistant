@@ -4,37 +4,23 @@ HaloSight is an external Halo Infinite session recorder/analyzer helper for the 
 
 It captures Windows/game-adjacent state, process and service snapshots, device status, recent system errors, and evidence files created by tools you already use such as CapFrameX, OBS, or NVIDIA recording.
 
-## Run From The GitHub Repo
+## Main Workflow
 
-From the repo root:
+From the repo or package root:
 
 ```text
 GPTOPT_LAUNCHER.cmd
 ```
 
-Menu options:
+The launcher opens the HaloSight GUI directly. There is no normal-user command menu.
 
-1. HaloSight GUI
-2. HaloSight Start
-3. HaloSight Stop + Build Upload
-4. HaloSight Status
-5. HaloSight Settings
-6. Run Smoke Test
-
-You can also run from the `HaloSight` folder:
-
-```text
-HaloSight_GUI.cmd
-```
-
-## GUI Workflow
-
-1. Run `HaloSight_GUI.cmd`.
-2. Open `Settings` and confirm the session root, evidence folders, limits, watched processes, and watched services.
-3. Select `Start Session` before the match.
-4. Play and capture normally.
-5. Select `Stop + Build Upload` after the match.
-6. Upload the generated `_UPLOAD.zip` from the sessions folder.
+1. Run `GPTOPT_LAUNCHER.cmd`.
+2. The GUI opens.
+3. Click `Settings` if you need to adjust folders, limits, watched processes, watched services, or upload behavior.
+4. Click `Start Session` before the match.
+5. Click `Stop + Build Upload` after the match.
+6. Click `Copy Upload Zip Path` or `Open Upload Folder`.
+7. Upload the generated `_UPLOAD.zip` from the sessions folder.
 
 ## Settings Workflow
 
@@ -58,19 +44,25 @@ Settings can be edited through the GUI:
 - Watched processes
 - Watched services
 
-## Upload Package Workflow
+## Advanced Manual Fallback
 
-`Stop + Build Upload` captures a stop snapshot, copies new matching evidence files, optionally compresses the newest copied video, writes `HaloSight_Report.md`, and creates a session `_UPLOAD.zip`.
+The `HaloSight_START.cmd`, `HaloSight_STOP.cmd`, `HaloSight_STATUS.cmd`, and `HaloSight_REPORT.cmd` launchers remain available for development and manual fallback. They are not the normal user workflow; Start, Stop, Status, Report, and Settings all belong inside the GUI.
 
 ## Tests
 
-Run from the `HaloSight` folder:
+Run from the HaloSight folder:
 
 ```text
 powershell -NoProfile -ExecutionPolicy Bypass -File tests\smoke_test.ps1
 ```
 
-The smoke test parses all PowerShell files, validates all JSON files, loads merged settings, exercises settings reset/save/load, runs `scripts\HaloSight.ps1 -Mode status`, and scans runtime scripts for prohibited behavior.
+Or run from the repo root:
+
+```text
+powershell -NoProfile -ExecutionPolicy Bypass -File Run-GPTOPT.ps1 -Mode test
+```
+
+The smoke test parses all PowerShell files, validates all JSON files, loads merged settings, exercises settings reset/save/load, runs `scripts\HaloSight.ps1 -Mode status`, verifies the launcher is GUI-first, and scans runtime scripts for prohibited behavior.
 
 ## Safety Guarantees
 
@@ -85,6 +77,7 @@ It does not:
 - close or clean browsers
 - change Halo priority
 - terminate game, browser, capture, overlay, or chat processes
+- reboot, log off, or shut down Windows
 
 ## Known Limitations
 
