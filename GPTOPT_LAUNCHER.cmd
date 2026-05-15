@@ -2,11 +2,13 @@
 setlocal
 cd /d "%~dp0"
 
-rem GPTOPT is GUI-first. Start/stop/status/settings are handled inside the GUI.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Run-GPTOPT.ps1" -Mode gui
+set "GPTOPT_EXIT=%ERRORLEVEL%"
 
-if errorlevel 1 (
+if not "%GPTOPT_EXIT%"=="0" (
   echo.
-  echo GPTOPT GUI exited with an error.
+  echo GPTOPT GUI exited with error code %GPTOPT_EXIT%.
+  echo.
   pause
+  exit /b %GPTOPT_EXIT%
 )
