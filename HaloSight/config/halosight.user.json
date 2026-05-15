@@ -1,0 +1,38 @@
+{
+  "Project": "GPTOPT-HaloSight",
+  "GameProcess": "HaloInfinite",
+  "LeaveBrowserOpen": true,
+  "NeverTouchProcesses": ["HaloInfinite", "steam", "RTSS", "MSIAfterburner", "CapFrameX", "chrome", "msedge"],
+  "SessionRoot": "%USERPROFILE%\\Documents\\GPTOPT\\HaloSight\\sessions",
+  "SearchRoots": [
+    "%USERPROFILE%\\Documents\\CapFrameX",
+    "%USERPROFILE%\\Videos",
+    "%USERPROFILE%\\Desktop",
+    "%USERPROFILE%\\Downloads"
+  ],
+  "CaptureFilePatterns": ["CapFrameX-HaloInfinite*.zip", "*.mp4", "*.mkv", "*.csv", "*.json"],
+  "Evidence": {
+    "MaxFiles": 50,
+    "MaxFileMB": 1500,
+    "CopyVideos": true,
+    "VideoExtensions": [".mp4", ".mkv", ".mov"],
+    "ExcludeDirectoryNames": ["node_modules", ".git", "AppData", "Windows", "Program Files", "Program Files (x86)"]
+  },
+  "OptionalTools": {
+    "PresentMonExe": "tools\\PresentMon.exe",
+    "FfmpegExe": "ffmpeg.exe"
+  },
+  "VideoCompress": {
+    "Enabled": true,
+    "MaxMinutes": 5,
+    "Bitrate": "8000k",
+    "Resolution": "1920:1080",
+    "FPS": 60
+  },
+  "UI": {
+    "AutoCopyUploadZipPath": true,
+    "AutoOpenUploadFolder": false
+  },
+  "WatchedProcesses": ["HaloInfinite", "RTSS", "MSIAfterburner", "CapFrameX", "steam", "obs64", "SteelSeriesSonar", "SteelSeriesEngine", "CC_Engine_x64", "audiodg", "dwm", "MsMpEng", "GameControllerService", "chrome", "msedge"],
+  "WatchedServices": ["GamingServices", "GamingServicesNet", "XblAuthManager", "XboxGipSvc", "GameInputSvc", "Audiosrv", "AudioEndpointBuilder", "SteamService"]
+}
