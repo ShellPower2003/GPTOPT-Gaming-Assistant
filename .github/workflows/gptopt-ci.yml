@@ -28,7 +28,7 @@ jobs:
       - name: Validate JSON files
         shell: pwsh
         run: |
-          $ErrorActionPreferenc = 'Stop'
+          $ErrorActionPreference = 'Stop'
           Get-ChildItem -Recurse -File -Filter *.json | ForEach-Object {
             Write-Host "Validating $($_.FullName)"
             $null = Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json
@@ -54,4 +54,3 @@ jobs:
           } else {
             throw 'HaloSight smoke_test.ps1 not found.'
           }
-
