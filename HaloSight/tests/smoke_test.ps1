@@ -74,6 +74,7 @@ $guiText = Get-Content -Raw -LiteralPath (Join-Path $Root 'scripts\HaloSightGUI.
 Assert ($guiText -match 'function Get-HaloSightDashboardState') 'Dashboard state function missing.'
 Assert ($guiText -match 'function Update-HaloSightDashboardCards') 'Dashboard update function missing.'
 Assert ($guiText -match 'function Update-HaloSightButtonStates') 'State-aware button function missing.'
+Assert ($guiText -match 'function Invoke-HaloSightAsync') 'Async HaloSight helper missing.'
 Assert ($guiText -match 'ReadyBtn') 'Ready for Halo button missing.'
 Assert ($guiText -match 'RefreshBtn') 'Refresh Status button missing.'
 Assert ($guiText -match 'Active Session' -and $guiText -match 'Latest Upload Zip') 'Required dashboard cards missing.'
@@ -81,6 +82,12 @@ $readyHandler = [regex]::Match($guiText, '(?s)\$window\.FindName\("ReadyBtn"\)\.
 Assert $readyHandler.Success 'Ready for Halo handler missing.'
 Assert ($readyHandler.Groups['body'].Value -match 'Update-HaloSightDashboardCards') 'Ready for Halo must update dashboard cards.'
 Assert ($readyHandler.Groups['body'].Value -notmatch 'Run-HS|Start-Process|Save-HaloSightConfig|Reset-HaloSightConfig|HaloSight\.ps1') 'Ready for Halo must remain read-only.'
+foreach($button in @('StartBtn','StopBtn','StatusBtn','ReportBtn')){
+    $handler = [regex]::Match($guiText, "(?s)\`$window\.FindName\(\`"$button\`"\)\.Add_Click\(\{(?<body>.*?)\}\)")
+    Assert $handler.Success "$button handler missing."
+    Assert ($handler.Groups['body'].Value -match 'Invoke-HaloSightAsync') "$button must use async helper."
+    Assert ($handler.Groups['body'].Value -notmatch 'WaitForExit|ReadToEnd|Run-HS') "$button handler must not block the WPF thread."
+}
 
 $runtimeFiles = Get-ChildItem -LiteralPath $Root -Recurse -File |
     Where-Object {
