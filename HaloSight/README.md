@@ -1,70 +1,94 @@
 # GPTOPT HaloSight GUI v0.4
 
-External Halo Infinite session recorder/analyzer helper for the existing GPTOPT gaming assistant repo.
+HaloSight is an external Halo Infinite session recorder/analyzer helper for the GPTOPT Gaming Assistant repo.
 
-It does not inject into Halo, read game memory, alter input, or touch anti-cheat-sensitive areas. It only captures external Windows/game state, files you already create with CapFrameX/OBS/NVIDIA, service status, timer resolution, and process snapshots.
+It captures Windows/game-adjacent state, process and service snapshots, device status, recent system errors, and evidence files created by tools you already use such as CapFrameX, OBS, or NVIDIA recording.
 
-## Use
+## Run From The GitHub Repo
 
-Run from the GUI:
+From the repo root:
+
+```text
+GPTOPT_LAUNCHER.cmd
+```
+
+Menu options:
+
+1. HaloSight GUI
+2. HaloSight Start
+3. HaloSight Stop + Build Upload
+4. HaloSight Status
+5. HaloSight Settings
+6. Run Smoke Test
+
+You can also run from the `HaloSight` folder:
 
 ```text
 HaloSight_GUI.cmd
 ```
 
-Or run from PowerShell / double-click CMD files:
+## GUI Workflow
 
-```text
-HaloSight_START.cmd
-HaloSight_STATUS.cmd
-HaloSight_STOP.cmd
-```
+1. Run `HaloSight_GUI.cmd`.
+2. Open `Settings` and confirm the session root, evidence folders, limits, watched processes, and watched services.
+3. Select `Start Session` before the match.
+4. Play and capture normally.
+5. Select `Stop + Build Upload` after the match.
+6. Upload the generated `_UPLOAD.zip` from the sessions folder.
 
-Workflow:
+## Settings Workflow
 
-1. Start RTSS/MSI Afterburner/CapFrameX/OBS or NVIDIA recording as normal.
-2. Run `HaloSight_START.cmd` before the match.
-3. Play Halo.
-4. Stop CapFrameX/video before scoreboard/menu when possible.
-5. Run `HaloSight_STOP.cmd`.
-6. Upload the generated `_UPLOAD.zip` from `Documents\GPTOPT\HaloSight\sessions\...`.
+HaloSight loads:
 
-## What it collects
+1. `config\halosight.default.json`
+2. `config\halosight.user.json`
 
-- Halo/RTSS/MSI Afterburner/CapFrameX process state
-- Timer resolution
-- Gaming/Xbox service state
-- HAGS/MPO/Game DVR registry state
-- Audio/Sonar process and endpoint state
-- Problem devices
-- Recent system errors excluding browser updater noise
-- New CapFrameX and video files created during session
-- Optional compressed MP4 clip if ffmpeg is available
-- Session report markdown + JSON/CSV logs
+The user config overlays the defaults. If `halosight.user.json` is missing, HaloSight creates it from defaults.
 
-## v0.3 optimization notes
+Settings can be edited through the GUI:
 
-- Evidence roots are scanned once per root instead of once per file pattern.
-- Evidence copying is capped by `Evidence.MaxFiles` and `Evidence.MaxFileMB` to avoid accidental huge upload bundles.
-- Optional tools resolve from the package first, then from `PATH`.
-- Video compression falls back to CPU x264 if NVIDIA NVENC is unavailable.
-- Reports now show the actual session folder name.
+- Session root
+- Evidence folders
+- Max evidence files
+- Max file size MB
+- Copy videos on/off
+- Compress videos on/off
+- Auto-copy upload zip path on/off
+- Auto-open upload folder on/off
+- Watched processes
+- Watched services
 
-## v0.4 GUI notes
+## Upload Package Workflow
 
-- Added `HaloSight_GUI.cmd`, a WPF button wrapper for start, stop, status, report, opening the latest session, opening the upload folder, and copying the latest upload zip path.
-- The GUI reads `config\halosight.config.json` so it uses the same session root as the optimized capture script.
+`Stop + Build Upload` captures a stop snapshot, copies new matching evidence files, optionally compresses the newest copied video, writes `HaloSight_Report.md`, and creates a session `_UPLOAD.zip`.
 
 ## Tests
 
-Run the smoke test from the `HaloSight` folder:
+Run from the `HaloSight` folder:
 
 ```text
 powershell -NoProfile -ExecutionPolicy Bypass -File tests\smoke_test.ps1
 ```
 
-The smoke test parses both PowerShell scripts, loads the JSON config, runs `scripts\HaloSight.ps1 -Mode status`, and checks that the package does not include process closure, Halo priority modification, injection, memory reads, or input manipulation behavior.
+The smoke test parses all PowerShell files, validates all JSON files, loads merged settings, exercises settings reset/save/load, runs `scripts\HaloSight.ps1 -Mode status`, and scans runtime scripts for prohibited behavior.
 
-## Safety
+## Safety Guarantees
 
-It does not close Chrome/Edge because the browser may be the ChatGPT session. It does not change Halo priority. It does not reboot.
+HaloSight is external capture only.
+
+It does not:
+
+- inject into Halo
+- read game memory
+- bypass anti-cheat
+- manipulate input
+- close or clean browsers
+- change Halo priority
+- terminate game, browser, capture, overlay, or chat processes
+
+## Known Limitations
+
+- It analyzes files and snapshots you create around a session; it does not inspect live game internals.
+- Video compression requires `ffmpeg.exe`.
+- Missing evidence usually means the configured folders do not match where your capture tools wrote files.
+- The GUI uses Windows PowerShell/WPF and is intended for Windows.
