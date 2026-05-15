@@ -18,23 +18,6 @@ function Reload-HSConfig {
     $script:SessionRoot = [Environment]::ExpandEnvironmentVariables($script:Config.SessionRoot)
 }
 
-function Run-HS($mode){
-    Reload-HSConfig
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = "powershell.exe"
-    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$Script`" -Mode $mode"
-    $psi.WorkingDirectory = $Root
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.UseShellExecute = $false
-    $p = [System.Diagnostics.Process]::Start($psi)
-    $out = $p.StandardOutput.ReadToEnd()
-    $err = $p.StandardError.ReadToEnd()
-    $p.WaitForExit()
-    Reload-HSConfig
-    return ($out + "`r`n" + $err).Trim()
-}
-
 function Get-LatestSessionPath {
     Reload-HSConfig
     if(!(Test-Path $SessionRoot)){ return $null }
@@ -342,6 +325,8 @@ $LogBox = $window.FindName("LogBox")
 $Footer = $window.FindName("Footer")
 $DashboardGrid = $window.FindName("DashboardGrid")
 $DashboardCards = @{}
+$script:HaloSightCommandRunning = $false
+$script:HaloSightRunningProcess = $null
 
 function Get-HaloSightBadgeBrush($state){
     switch($state){
@@ -393,14 +378,28 @@ function Set-HaloSightDashboardCard($title, $state, $detail){
 function Update-HaloSightButtonStates($dashboardState){
     $StartBtn = $window.FindName("StartBtn")
     $StopBtn = $window.FindName("StopBtn")
+    $StatusBtn = $window.FindName("StatusBtn")
+    $ReportBtn = $window.FindName("ReportBtn")
+    $SettingsBtn = $window.FindName("SettingsBtn")
     $CopyZipBtn = $window.FindName("CopyZipBtn")
     $OpenUploadBtn = $window.FindName("OpenUploadBtn")
     $OpenSessionBtn = $window.FindName("OpenSessionBtn")
     $active = [bool]$dashboardState.ActiveSession
     $hasZip = -not [string]::IsNullOrWhiteSpace($dashboardState.LatestUploadZip)
     $hasSession = -not [string]::IsNullOrWhiteSpace($dashboardState.LatestSession)
-    $StartBtn.IsEnabled = -not $active
-    $StopBtn.IsEnabled = $active
+    if($script:HaloSightCommandRunning){
+        $StartBtn.IsEnabled = $false
+        $StopBtn.IsEnabled = $false
+        $StatusBtn.IsEnabled = $false
+        $ReportBtn.IsEnabled = $false
+        $SettingsBtn.IsEnabled = $false
+    }else{
+        $StartBtn.IsEnabled = -not $active
+        $StopBtn.IsEnabled = $active
+        $StatusBtn.IsEnabled = $true
+        $ReportBtn.IsEnabled = $true
+        $SettingsBtn.IsEnabled = $true
+    }
     $CopyZipBtn.IsEnabled = $hasZip
     $OpenUploadBtn.IsEnabled = $hasZip
     $OpenSessionBtn.IsEnabled = $hasSession
@@ -419,6 +418,86 @@ function Append-Log($text){
     $stamp = Get-Date -Format "HH:mm:ss"
     $LogBox.AppendText("[$stamp] $text`r`n")
     $LogBox.ScrollToEnd()
+}
+
+function Invoke-HaloSightAsync($mode){
+    if($script:HaloSightCommandRunning){
+        Append-Log "Already running: $($script:HaloSightRunningMode)"
+        return
+    }
+
+    Reload-HSConfig
+    $script:HaloSightCommandRunning = $true
+    $script:HaloSightRunningMode = $mode
+    $Footer.Text = "Running: $mode..."
+    Update-HaloSightDashboardCards | Out-Null
+    Append-Log "Running: $mode..."
+
+    $outputLines = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList))
+    $errorLines = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList))
+
+    try{
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "powershell.exe"
+        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$Script`" -Mode $mode"
+        $psi.WorkingDirectory = $Root
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+
+        $p = New-Object System.Diagnostics.Process
+        $p.StartInfo = $psi
+        $p.EnableRaisingEvents = $true
+        $p.add_OutputDataReceived({
+            param($sender,$args)
+            if($null -ne $args.Data){ [void]$outputLines.Add($args.Data) }
+        })
+        $p.add_ErrorDataReceived({
+            param($sender,$args)
+            if($null -ne $args.Data){ [void]$errorLines.Add($args.Data) }
+        })
+        $p.add_Exited({
+            param($sender,$args)
+            $completedMode = $mode
+            $exitCode = $sender.ExitCode
+            $stdout = ($outputLines.ToArray() -join "`r`n").Trim()
+            $stderr = ($errorLines.ToArray() -join "`r`n").Trim()
+            $window.Dispatcher.BeginInvoke([Action]{
+                try{
+                    if($stdout){ Append-Log $stdout }
+                    if($stderr){ Append-Log $stderr }
+                    Reload-HSConfig
+                    if($completedMode -in @('stop','report')){
+                        Handle-UploadActions
+                    }else{
+                        Update-HaloSightDashboardCards | Out-Null
+                    }
+                    if($exitCode -eq 0){
+                        $Footer.Text = "Completed: $completedMode."
+                    }else{
+                        $Footer.Text = "Error running $completedMode. Exit code: $exitCode"
+                    }
+                }finally{
+                    $script:HaloSightCommandRunning = $false
+                    $script:HaloSightRunningProcess = $null
+                    Update-HaloSightDashboardCards | Out-Null
+                    $sender.Dispose()
+                }
+            }) | Out-Null
+        })
+
+        [void]$p.Start()
+        $script:HaloSightRunningProcess = $p
+        $p.BeginOutputReadLine()
+        $p.BeginErrorReadLine()
+    }catch{
+        $script:HaloSightCommandRunning = $false
+        $script:HaloSightRunningProcess = $null
+        Append-Log $_.Exception.Message
+        $Footer.Text = "Error running $mode."
+        Update-HaloSightDashboardCards | Out-Null
+    }
 }
 
 function Handle-UploadActions {
@@ -441,18 +520,11 @@ function Handle-UploadActions {
     ForEach-Object { New-HaloSightDashboardCard $_ }
 
 $window.FindName("StartBtn").Add_Click({
-    Append-Log "Starting session..."
-    $r = Run-HS "start"
-    Append-Log $r
-    $Footer.Text = "Active session started."
-    Update-HaloSightDashboardCards | Out-Null
+    Invoke-HaloSightAsync "start"
 })
 
 $window.FindName("StopBtn").Add_Click({
-    Append-Log "Stopping session and building upload package..."
-    $r = Run-HS "stop"
-    Append-Log $r
-    Handle-UploadActions
+    Invoke-HaloSightAsync "stop"
 })
 
 $window.FindName("ReadyBtn").Add_Click({
@@ -466,15 +538,11 @@ $window.FindName("RefreshBtn").Add_Click({
 })
 
 $window.FindName("StatusBtn").Add_Click({
-    Append-Log "Checking status..."
-    Append-Log (Run-HS "status")
-    Update-HaloSightDashboardCards | Out-Null
+    Invoke-HaloSightAsync "status"
 })
 
 $window.FindName("ReportBtn").Add_Click({
-    Append-Log "Rebuilding latest report/package..."
-    Append-Log (Run-HS "report")
-    Handle-UploadActions
+    Invoke-HaloSightAsync "report"
 })
 
 $window.FindName("SettingsBtn").Add_Click({
