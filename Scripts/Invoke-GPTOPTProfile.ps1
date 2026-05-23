@@ -24,6 +24,7 @@ function Get-ServiceSnapshot {
 
     foreach ($name in $Names) {
         $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+
         if ($null -eq $svc) {
             [pscustomobject]@{
                 Name      = $name
@@ -74,6 +75,7 @@ function Set-ServiceSafe {
     )
 
     $svc = Get-Service -Name $Name -ErrorAction SilentlyContinue
+
     if ($null -eq $svc) {
         Write-Warning "Service not found: $Name"
         return
@@ -112,10 +114,10 @@ function Restore-ServiceSnapshot {
         }
 
         $startupType = switch ($item.StartType) {
-            'Auto'     { 'Automatic' }
-            'Manual'   { 'Manual' }
+            'Auto' { 'Automatic' }
+            'Manual' { 'Manual' }
             'Disabled' { 'Disabled' }
-            default    { 'Manual' }
+            default { 'Manual' }
         }
 
         $action = if ($item.Status -eq 'Running') { 'Start' } else { 'Stop' }
@@ -156,3 +158,4 @@ switch ($Mode) {
         Write-Step 'Reset complete.'
     }
 }
+

@@ -1,0 +1,21 @@
+* text=auto eol=lf
+
+*.ps1 text eol=lf
+*.psm1 text eol=lf
+*.psd1 text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.zip binary
+*.7z binary
+*.rar binary
+*.exe binary
+*.msi binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp4 binary
