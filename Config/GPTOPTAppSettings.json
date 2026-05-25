@@ -1,0 +1,15 @@
+{
+  "DefaultContext": "NormalGaming",
+  "ShowInfoRecommendations": false,
+  "OpenReportFolderAfterBuild": true,
+  "UseDetachedReportBuild": true,
+  "LastReportBundlePath": "",
+  "LastSelectedTab": "Home",
+  "SessionRoot": "",
+  "MaxEvidenceFiles": 80,
+  "MaxFileSizeMB": 250,
+  "CopyVideos": true,
+  "CompressVideos": false,
+  "AutoCopyUploadZipPath": true,
+  "AutoOpenUploadFolder": true
+}
