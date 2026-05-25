@@ -10,9 +10,9 @@ $RepoDir  = Join-Path $BaseDir 'GPTOPT-Gaming-Assistant'
 $ZipPath  = Join-Path $BaseDir 'GPTOPT-main.zip'
 $TempDir  = Join-Path $BaseDir 'zip_extract'
 
-function OK($m){ Write-Host "[OK]  $m" -ForegroundColor Green }
-function DO($m){ Write-Host "[DO]  $m" -ForegroundColor Yellow }
-function BAD($m){ Write-Host "[BAD] $m" -ForegroundColor Red }
+function Write-OK($m){ Write-Host "[OK]  $m" -ForegroundColor Green }
+function Write-Step($m){ Write-Host "[DO]  $m" -ForegroundColor Yellow }
+function Write-Bad($m){ Write-Host "[BAD] $m" -ForegroundColor Red }
 
 New-Item -ItemType Directory -Path $BaseDir -Force | Out-Null
 
@@ -20,25 +20,25 @@ $git = Get-Command git.exe -ErrorAction SilentlyContinue
 
 if($git){
     if(Test-Path (Join-Path $RepoDir '.git')){
-        DO "Updating existing repo: $RepoDir"
+        Write-Step "Updating existing repo: $RepoDir"
         Push-Location $RepoDir
         git pull --ff-only
         Pop-Location
-        OK "Repo updated"
+        Write-OK "Repo updated"
     }
     elseif(Test-Path $RepoDir){
-        DO "Repo folder exists but is not a git clone. Keeping it and using ZIP fallback."
+        Write-Step "Repo folder exists but is not a git clone. Keeping it and using ZIP fallback."
         $git = $null
     }
     else{
-        DO "Cloning repo to: $RepoDir"
+        Write-Step "Cloning repo to: $RepoDir"
         git clone $RepoUrl $RepoDir
-        OK "Repo cloned"
+        Write-OK "Repo cloned"
     }
 }
 
 if(-not $git){
-    DO "Git not available. Downloading ZIP fallback."
+    Write-Step "Git not available. Downloading ZIP fallback."
     Remove-Item $ZipPath -Force -ErrorAction SilentlyContinue
     Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
     Invoke-WebRequest -Uri $ZipUrl -OutFile $ZipPath
@@ -46,19 +46,19 @@ if(-not $git){
     $Extracted = Join-Path $TempDir 'GPTOPT-Gaming-Assistant-main'
     if(Test-Path $RepoDir){
         $Backup = "$RepoDir.backup_$(Get-Date -Format yyyyMMdd_HHmmss)"
-        DO "Backing up existing folder to: $Backup"
+        Write-Step "Backing up existing folder to: $Backup"
         Rename-Item $RepoDir $Backup
     }
     Move-Item $Extracted $RepoDir
-    OK "Repo downloaded by ZIP"
+    Write-OK "Repo downloaded by ZIP"
 }
 
 $Launcher = Join-Path $RepoDir 'Launch-GPTOPT.ps1'
 if(!(Test-Path $Launcher)){
-    BAD "Launcher missing: $Launcher"
+    Write-Bad "Launcher missing: $Launcher"
     exit 1
 }
 
-DO "Launching GPTOPT menu"
+Write-Step "Launching GPTOPT menu"
 Set-Location $RepoDir
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Launcher
