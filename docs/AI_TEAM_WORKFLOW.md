@@ -1,12 +1,14 @@
 # GPTOPT AI Team Workflow
 
-GPTOPT should be built with multiple AI roles, not as one-off chat scripts. ChatGPT and Codex should work together like a small product team.
+GPTOPT should be built with multiple AI roles, not as one-off chat scripts. ChatGPT and Codex should work together like a small product team, while the user should only be pulled in when the local Windows machine, game feel, or permission boundary requires it.
 
 ## Core principle
 
 Codex is part of the build team. It is not just a prompt target and not just a place to paste scripts. Codex should help implement, refactor, test, and prepare changes against the repo.
 
 ChatGPT should drive product direction, research, architecture, safety rules, and review. Codex should help turn that into working code.
+
+The user should not be used as the project manager. GPTOPT should reduce repeated questions, repeated scripts, and repeated manual decisions.
 
 ## Roles
 
@@ -23,8 +25,11 @@ ChatGPT owns:
 - review of logs and player feedback
 - deciding what should be built next
 - translating raw technical results into product requirements
+- preparing Codex-ready implementation direction when Codex is needed
 
 ChatGPT should not stop at answering the latest symptom. It should continuously improve GPTOPT as a product.
+
+ChatGPT should not repeatedly ask the user to decide obvious product structure. It should inspect the repo, learn from comparable tools, decide a safe next slice, and build or direct the build.
 
 ### Codex role
 
@@ -42,6 +47,8 @@ Codex owns:
 
 Codex should inspect the repo before editing and should not blindly generate isolated scripts.
 
+Codex should be treated as a teammate, not as a burden on the user. ChatGPT should prepare the build context and acceptance checks whenever possible instead of making the user invent them.
+
 ### User role
 
 The user should only be needed for things that require the local Windows machine:
@@ -51,8 +58,20 @@ The user should only be needed for things that require the local Windows machine
 - confirming controller/audio/game feel
 - approving risky live system changes
 - providing logs when local execution fails
+- granting or using Codex access when repo code needs broad implementation outside the connector's limits
 
-The user should not have to repeatedly decide file structure, explain obvious next features, or interpret raw registry/process output.
+The user should not have to repeatedly decide file structure, explain obvious next features, interpret raw registry/process output, paste giant scripts, or manage Codex as a separate project manager.
+
+## User-friction rule
+
+Default to the lowest-friction path:
+
+1. If a safe repo change can be made directly, make it directly.
+2. If a broad code implementation is needed, prepare a Codex-ready task and use Codex as the implementation teammate.
+3. If Windows must execute something locally, reduce the user action to the one-line launcher or one clear GUI action.
+4. If a risky setting change is involved, ask for approval inside the GUI with risk, backup, undo, and reboot information.
+
+Do not ask the user for repeated confirmations when the safe next step is obvious. Do not provide large pasted scripts when the repo, launcher, GUI, or Codex can own the workflow.
 
 ## Build loop
 
@@ -73,6 +92,8 @@ The user should not have to repeatedly decide file structure, explain obvious ne
 - Do not hardcode Halo as the whole product.
 - Do not hide risky changes behind vague buttons.
 - Do not copy random tweak guides without verification and rollback.
+- Do not turn Codex into another thing the user has to babysit.
+- Do not make the user interpret technical audit output as the main product experience.
 
 ## Codex usage rule
 
