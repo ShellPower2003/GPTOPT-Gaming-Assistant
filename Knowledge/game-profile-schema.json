@@ -1,0 +1,101 @@
+{
+  "version": "0.1.0",
+  "purpose": "Defines how GPTOPT represents each supported game without hardcoding the entire product around one title.",
+  "profileContract": {
+    "id": "string, stable profile id such as halo.infinite or valorant",
+    "displayName": "human readable game name",
+    "status": "active, stable, maintenance, experimental, retired",
+    "executables": [
+      "known process or executable names"
+    ],
+    "launchers": [
+      "steam, xbox, battle.net, epic, riot, standalone"
+    ],
+    "configFiles": [
+      {
+        "pathHint": "path or environment-expanded path",
+        "format": "json, ini, cfg, xml, registry, unknown",
+        "backupRequired": true,
+        "safeFieldsOnly": true
+      }
+    ],
+    "displayBaseline": {
+      "preferredMode": "fullscreen, borderless, exclusive, game-dependent",
+      "resolutionPolicy": "native, stretched, custom, user-selected",
+      "refreshPolicy": "highest stable refresh unless profile overrides",
+      "vSyncPolicy": "off unless profile requires otherwise",
+      "hdrPolicy": "user preference or game-specific"
+    },
+    "limiterBaseline": {
+      "preferredLimiter": "rtss, in-game, driver, none",
+      "capPolicy": "fixed value, refresh-relative, VRR-relative, user-selected",
+      "conflictRules": [
+        "Do not stack multiple FPS caps unless intentionally testing."
+      ]
+    },
+    "inputBaseline": {
+      "supportedInputs": [
+        "controller",
+        "mouse-keyboard"
+      ],
+      "requiredVendorApps": [],
+      "steamInputPolicy": "off, on, profile-dependent, user-selected",
+      "deadzonePolicy": "game-specific, measured, user-tested",
+      "sensitivityPolicy": "do not blindly copy pro settings; test and track feel"
+    },
+    "audioBaseline": {
+      "requiredRoutingApps": [],
+      "spatialAudioPolicy": "game/user dependent",
+      "voiceChatPolicy": "game/user dependent"
+    },
+    "overlayPolicy": {
+      "allowed": [
+        "RTSS",
+        "MSI Afterburner"
+      ],
+      "review": [
+        "Discord",
+        "Steam overlay",
+        "Game Bar",
+        "vendor overlays"
+      ],
+      "blockedDuringTelemetry": [
+        "duplicate capture/telemetry tools unless intentionally testing"
+      ]
+    },
+    "warmupRoutine": {
+      "durationMinutes": "number or range",
+      "steps": [
+        {
+          "name": "plain language drill name",
+          "goal": "what the player should feel or improve",
+          "stopCondition": "when to move on"
+        }
+      ]
+    },
+    "reviewQuestions": [
+      "short post-session prompts used to improve the recommendation model"
+    ],
+    "safetyRules": [
+      "Every write action must declare risk, backup, undo path, admin requirement, and reboot requirement."
+    ]
+  },
+  "defaultProfiles": [
+    {
+      "id": "halo.infinite",
+      "displayName": "Halo Infinite",
+      "status": "stable",
+      "role": "reference profile and proving ground",
+      "preferredLimiter": "RTSS",
+      "knownBaseline": "4K 240 Hz, RTSS 240, Halo config 3840x2160, scale 100, VSync off, min/target 960, controller-first testing"
+    },
+    {
+      "id": "generic.shooter",
+      "displayName": "Generic Competitive Shooter",
+      "status": "experimental",
+      "role": "fallback profile for games without a dedicated profile yet",
+      "preferredLimiter": "profile-dependent",
+      "knownBaseline": "Use universal PC checks, detect executable, avoid unsafe config writes until a profile exists."
+    }
+  ]
+}
