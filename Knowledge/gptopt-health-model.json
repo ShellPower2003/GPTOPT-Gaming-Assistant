@@ -1,18 +1,38 @@
 {
-  "version": "0.1.0",
-  "purpose": "Plain-language model used by GPTOPT Guided Mode to translate technical audit values into user decisions.",
+  "version": "0.2.0",
+  "purpose": "Plain-language model used by GPTOPT Guided Mode to translate technical audit values, player setup, and game profile checks into user decisions.",
+  "productDirection": {
+    "scope": "Competitive PC gaming optimization platform, not a Halo-only script pack.",
+    "referenceProfile": "Halo Infinite is the first proving-ground profile because it is the user's best live test case.",
+    "futureProfiles": [
+      "Halo Infinite",
+      "next Halo PC titles",
+      "Call of Duty",
+      "Apex Legends",
+      "The Finals",
+      "Fortnite",
+      "Valorant",
+      "Counter-Strike 2",
+      "Marvel Rivals or other current shooters"
+    ],
+    "rule": "Separate universal PC health checks from game-specific profiles, controller profiles, warmup routines, and player-review guidance."
+  },
   "states": {
     "Good": {
       "meaning": "This item is already in the expected state.",
       "userAction": "No action needed."
     },
     "Review": {
-      "meaning": "This may be fine depending on the user's setup.",
+      "meaning": "This may be fine depending on the selected game, hardware, or player preference.",
       "userAction": "Read the explanation before changing anything."
     },
     "Fix": {
       "meaning": "This is likely wrong for the selected profile.",
       "userAction": "Use the recommended fix, then audit again."
+    },
+    "Learn": {
+      "meaning": "This setting or habit should be tested, tracked, and improved over time.",
+      "userAction": "Run a focused test, record the result, and let GPTOPT update the recommendation."
     }
   },
   "principles": [
@@ -21,62 +41,137 @@
     "Hide technical detail until the user asks for it.",
     "Beginner mode should answer: ready to play, fix first, or review.",
     "Advanced mode may show raw values, paths, registry keys, and process names.",
-    "Never require the user to understand HwSchMode, OverlayTestMode, SyncLimiter, or timer APIs before making a safe decision."
+    "Never require the user to understand HwSchMode, OverlayTestMode, SyncLimiter, or timer APIs before making a safe decision.",
+    "Do not assume Halo is the whole product. Halo is a test profile for the broader competitive PC gaming engine.",
+    "Every game profile should define display mode, limiter source, input path, audio path, overlays, telemetry tools, and warmup routine.",
+    "Player habits matter. GPTOPT should learn from controller feel, warmup results, match notes, and before/after performance reports."
   ],
-  "checks": [
+  "layers": {
+    "universalPc": "Windows, GPU, timer, power, USB, network, audio, overlays, background load, rollback safety.",
+    "gameProfile": "Per-game executable, config files, FPS cap, display mode, graphics preset, launch stack, anti-cheat constraints.",
+    "inputProfile": "Controller or mouse settings, vendor software, deadzones, curves, sensitivity, acceleration, virtual input conflicts.",
+    "playerRoutine": "Warmup, aim drills, ranked readiness, VOD review notes, session fatigue, confidence tracking.",
+    "learningLoop": "Compare audit state, player feel, and match results to improve future recommendations."
+  },
+  "universalChecks": [
     {
       "id": "timer.resolution",
       "area": "Latency Timer",
-      "goodWhen": "Current timer resolution is 1 ms or lower, preferably 0.5 ms.",
+      "goodWhen": "Current timer resolution is 1 ms or lower, preferably 0.5 ms during competitive sessions.",
       "plainGood": "The low-latency timer is active.",
       "plainFix": "The timer is not in low-latency mode, which can make input and frame pacing less consistent.",
       "recommendedAction": "Start GPTOPT Timer Holder.",
       "risk": "Low. A background helper process holds the timer request. Stop it or disable the scheduled task to undo."
     },
     {
-      "id": "rtss.halo.cap",
-      "area": "FPS Cap",
-      "goodWhen": "HaloInfinite.exe.cfg has FramerateLimit=240 and ApplicationDetectionLevel is not 0.",
-      "plainGood": "RTSS is set as the Halo FPS limiter at 240 FPS.",
-      "plainFix": "RTSS is installed, but Halo is not clearly capped by its own RTSS profile.",
-      "recommendedAction": "Apply RTSS Halo 240 baseline.",
-      "risk": "Low. GPTOPT backs up the RTSS profile before changing it."
-    },
-    {
-      "id": "halo.display",
-      "area": "Halo Display Settings",
-      "goodWhen": "3840x2160, render scale 100, UI scale 100, VSync off, min/target 960.",
-      "plainGood": "Halo display settings match the current competitive baseline.",
-      "plainFix": "Halo display settings do not match the selected baseline.",
-      "recommendedAction": "Apply Halo Display Baseline.",
-      "risk": "Low. GPTOPT backs up SpecControlSettings.json first and only changes listed display/session fields."
-    },
-    {
       "id": "windows.graphics",
       "area": "Windows Gaming Settings",
       "goodWhen": "HAGS=2, MPO OverlayTestMode=5, Game Mode enabled, capture disabled, no stale DWM tweak leftovers.",
       "plainGood": "Windows graphics and capture settings are in the expected gaming state.",
-      "plainFix": "A Windows graphics/capture setting is outside the baseline.",
-      "recommendedAction": "Apply Windows Essentials.",
+      "plainFix": "A Windows graphics/capture setting is outside the selected baseline.",
+      "recommendedAction": "Apply Windows Essentials after backup.",
       "risk": "Medium-low. Registry changes are reversible and should be backed up before writing."
     },
     {
-      "id": "controller.flydigi",
-      "area": "Controller",
-      "goodWhen": "Flydigi SpaceStation and GameControllerService are running, controller device is present.",
-      "plainGood": "Flydigi controller software is active.",
-      "plainFix": "Flydigi software or controller service is not running.",
-      "recommendedAction": "Start Session Apps.",
+      "id": "controller.software",
+      "area": "Controller Software",
+      "goodWhen": "Required controller app/service is running and the intended controller device is present.",
+      "plainGood": "Controller software is active.",
+      "plainFix": "Controller software or service is not running.",
+      "recommendedAction": "Start Session Apps or open the controller app.",
       "risk": "Low. Starts existing vendor software only."
     },
     {
-      "id": "audio.sonar",
-      "area": "Audio / Sonar",
-      "goodWhen": "SteelSeries Sonar audio device exists; Sonar process running is preferred when routing is needed.",
-      "plainGood": "Sonar audio routing is available.",
-      "plainReview": "The Sonar device exists but the app process is not running. This can be fine unless headset routing sounds wrong.",
-      "recommendedAction": "Open SteelSeries GG if audio routing is wrong.",
-      "risk": "Low. Do not disable Sonar; the user needs it for headphones."
+      "id": "audio.routing",
+      "area": "Audio Routing",
+      "goodWhen": "Expected audio device exists; required routing software is running when needed.",
+      "plainGood": "Audio routing is available.",
+      "plainReview": "The audio device exists but the routing app may not be running. This can be fine unless headset routing sounds wrong.",
+      "recommendedAction": "Open the headset/audio app if audio routing is wrong.",
+      "risk": "Low. Do not disable required audio software."
     }
+  ],
+  "gameProfiles": [
+    {
+      "id": "halo.infinite",
+      "name": "Halo Infinite",
+      "role": "Reference profile and live testing target.",
+      "status": "Stable/maintenance-era game profile; recommendations should not chase constant seasonal changes unless a new patch changes behavior.",
+      "checks": [
+        {
+          "id": "rtss.halo.cap",
+          "area": "FPS Cap",
+          "goodWhen": "HaloInfinite.exe.cfg has FramerateLimit=240 and ApplicationDetectionLevel is not 0.",
+          "plainGood": "RTSS is set as the Halo FPS limiter at 240 FPS.",
+          "plainFix": "RTSS is installed, but Halo is not clearly capped by its own RTSS profile.",
+          "recommendedAction": "Apply RTSS Halo 240 baseline.",
+          "risk": "Low. GPTOPT backs up the RTSS profile before changing it."
+        },
+        {
+          "id": "halo.display",
+          "area": "Halo Display Settings",
+          "goodWhen": "3840x2160, render scale 100, UI scale 100, VSync off, min/target 960 for the user's current baseline.",
+          "plainGood": "Halo display settings match the current competitive baseline.",
+          "plainFix": "Halo display settings do not match the selected baseline.",
+          "recommendedAction": "Apply Halo Display Baseline after backup.",
+          "risk": "Low. GPTOPT backs up SpecControlSettings.json first and only changes listed display/session fields."
+        }
+      ],
+      "playerLayer": {
+        "controller": {
+          "track": [
+            "controller device",
+            "vendor app state",
+            "deadzone",
+            "look sensitivity",
+            "acceleration",
+            "response curve",
+            "virtual mouse/keyboard devices",
+            "Steam Input state"
+          ],
+          "currentKnownUserBaseline": "Flydigi Vader 4 Pro wired, SpaceStation required, no smoothing, no look acceleration, curves tested at 0/0 and 3/3."
+        },
+        "warmup": {
+          "goal": "Prepare hands, aim, movement, and decision speed before ranked sessions.",
+          "defaultRoutine": [
+            "Controller/device check",
+            "Audio check",
+            "5 minutes movement and strafe tracking",
+            "5 minutes BR/bandit precision and reticle discipline",
+            "5 minutes map movement or curb-slide routes",
+            "1 low-stress match or bot/custom drill before ranked"
+          ],
+          "learnFrom": [
+            "first-match accuracy",
+            "shot confidence",
+            "input delay feel",
+            "missed reversals",
+            "over-aiming or under-aiming notes",
+            "ranked match results"
+          ]
+        },
+        "proStudy": {
+          "purpose": "Learn patterns from elite players without pretending their exact settings automatically fit every user.",
+          "track": [
+            "LastShot gameplay habits and pacing",
+            "Ninja historical Halo habits and communication style",
+            "current HCS/pro VODs",
+            "spawn timing",
+            "crosshair placement",
+            "damage discipline",
+            "when pros disengage instead of ego-challenging"
+          ],
+          "rule": "Use pro study to generate drills and decision rules, not blindly copy sensitivity/settings without testing."
+        }
+      }
+    }
+  ],
+  "nextProductCapabilities": [
+    "Game profile selector instead of Halo-only buttons.",
+    "Controller profile section with plain-language feel goals: steady, snappy, micro-aim, tracking, anti-overaim.",
+    "Warmup mode that launches a checklist before ranked sessions.",
+    "Session review mode that asks only a few focused questions after play and updates recommendations.",
+    "Knowledge refresh workflow that researches current patches, pro meta, driver notes, and tool changes before changing recommendations.",
+    "Recommended action queue that explains impact, risk, backup, and undo before every fix."
   ]
 }
