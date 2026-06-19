@@ -34,6 +34,11 @@ jobs:
             $null = Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json
           }
 
+      - name: Run GPTOPT repo health validation
+        shell: pwsh
+        run: |
+          ./Scripts/Test-GPTOPTRepoHealth.ps1
+
       - name: Install PSScriptAnalyzer
         shell: pwsh
         run: |
