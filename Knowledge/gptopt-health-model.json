@@ -1,0 +1,82 @@
+{
+  "version": "0.1.0",
+  "purpose": "Plain-language model used by GPTOPT Guided Mode to translate technical audit values into user decisions.",
+  "states": {
+    "Good": {
+      "meaning": "This item is already in the expected state.",
+      "userAction": "No action needed."
+    },
+    "Review": {
+      "meaning": "This may be fine depending on the user's setup.",
+      "userAction": "Read the explanation before changing anything."
+    },
+    "Fix": {
+      "meaning": "This is likely wrong for the selected profile.",
+      "userAction": "Use the recommended fix, then audit again."
+    }
+  },
+  "principles": [
+    "Default to plain-language readiness, not raw registry names.",
+    "Every fix must explain what it changes and whether it is reversible.",
+    "Hide technical detail until the user asks for it.",
+    "Beginner mode should answer: ready to play, fix first, or review.",
+    "Advanced mode may show raw values, paths, registry keys, and process names.",
+    "Never require the user to understand HwSchMode, OverlayTestMode, SyncLimiter, or timer APIs before making a safe decision."
+  ],
+  "checks": [
+    {
+      "id": "timer.resolution",
+      "area": "Latency Timer",
+      "goodWhen": "Current timer resolution is 1 ms or lower, preferably 0.5 ms.",
+      "plainGood": "The low-latency timer is active.",
+      "plainFix": "The timer is not in low-latency mode, which can make input and frame pacing less consistent.",
+      "recommendedAction": "Start GPTOPT Timer Holder.",
+      "risk": "Low. A background helper process holds the timer request. Stop it or disable the scheduled task to undo."
+    },
+    {
+      "id": "rtss.halo.cap",
+      "area": "FPS Cap",
+      "goodWhen": "HaloInfinite.exe.cfg has FramerateLimit=240 and ApplicationDetectionLevel is not 0.",
+      "plainGood": "RTSS is set as the Halo FPS limiter at 240 FPS.",
+      "plainFix": "RTSS is installed, but Halo is not clearly capped by its own RTSS profile.",
+      "recommendedAction": "Apply RTSS Halo 240 baseline.",
+      "risk": "Low. GPTOPT backs up the RTSS profile before changing it."
+    },
+    {
+      "id": "halo.display",
+      "area": "Halo Display Settings",
+      "goodWhen": "3840x2160, render scale 100, UI scale 100, VSync off, min/target 960.",
+      "plainGood": "Halo display settings match the current competitive baseline.",
+      "plainFix": "Halo display settings do not match the selected baseline.",
+      "recommendedAction": "Apply Halo Display Baseline.",
+      "risk": "Low. GPTOPT backs up SpecControlSettings.json first and only changes listed display/session fields."
+    },
+    {
+      "id": "windows.graphics",
+      "area": "Windows Gaming Settings",
+      "goodWhen": "HAGS=2, MPO OverlayTestMode=5, Game Mode enabled, capture disabled, no stale DWM tweak leftovers.",
+      "plainGood": "Windows graphics and capture settings are in the expected gaming state.",
+      "plainFix": "A Windows graphics/capture setting is outside the baseline.",
+      "recommendedAction": "Apply Windows Essentials.",
+      "risk": "Medium-low. Registry changes are reversible and should be backed up before writing."
+    },
+    {
+      "id": "controller.flydigi",
+      "area": "Controller",
+      "goodWhen": "Flydigi SpaceStation and GameControllerService are running, controller device is present.",
+      "plainGood": "Flydigi controller software is active.",
+      "plainFix": "Flydigi software or controller service is not running.",
+      "recommendedAction": "Start Session Apps.",
+      "risk": "Low. Starts existing vendor software only."
+    },
+    {
+      "id": "audio.sonar",
+      "area": "Audio / Sonar",
+      "goodWhen": "SteelSeries Sonar audio device exists; Sonar process running is preferred when routing is needed.",
+      "plainGood": "Sonar audio routing is available.",
+      "plainReview": "The Sonar device exists but the app process is not running. This can be fine unless headset routing sounds wrong.",
+      "recommendedAction": "Open SteelSeries GG if audio routing is wrong.",
+      "risk": "Low. Do not disable Sonar; the user needs it for headphones."
+    }
+  ]
+}
