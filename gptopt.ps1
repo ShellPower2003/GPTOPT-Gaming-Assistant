@@ -60,24 +60,30 @@ $Scripts = Join-Path $Root 'Scripts'
 $Reports = Join-Path $Root 'Reports'
 $Backups = Join-Path $Root 'Backups'
 $Logs    = Join-Path $Root 'Logs'
-foreach ($p in @($Scripts,$Reports,$Backups,$Logs)) { Ensure-Directory $p }
+$Knowledge = Join-Path $Root 'Knowledge'
+foreach ($p in @($Scripts,$Reports,$Backups,$Logs,$Knowledge)) { Ensure-Directory $p }
+
+$GuidedEntry   = Join-Path $Scripts 'Invoke-GPTOPTGuidedControlCenter.ps1'
+$AdvancedEntry = Join-Path $Scripts 'Invoke-GPTOPTControlCenter.ps1'
+$LegacyEntry   = Join-Path $Scripts 'Invoke-GPTOPTAppGUI.ps1'
+$LaunchEntry   = Join-Path $Root 'Launch-GPTOPT.ps1'
 
 $GuiCandidates = @(
-    (Join-Path $Scripts 'Invoke-GPTOPTControlCenter.ps1'),
-    (Join-Path $Scripts 'Invoke-GPTOPTAppGUI.ps1'),
-    (Join-Path $Root 'Launch-GPTOPT.ps1'),
-    (Join-Path $Root 'Run-GPTOPT.ps1')
+    $GuidedEntry,
+    $AdvancedEntry,
+    $LegacyEntry,
+    $LaunchEntry
 )
 
 $Entry = $GuiCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 
 if (!$Entry) {
-    Say 'No GUI entry found. Creating minimal local launcher.' 'Yellow'
+    Say 'No GUI entry found. Creating minimal guided placeholder launcher.' 'Yellow'
     $Entry = Join-Path $Root 'Run-GPTOPT.ps1'
     @'
 $ErrorActionPreference = "SilentlyContinue"
 Add-Type -AssemblyName PresentationFramework
-[System.Windows.MessageBox]::Show("GPTOPT repo installed, but no GUI entry file was found. Add Scripts\Invoke-GPTOPTControlCenter.ps1 as the main app entry.", "GPTOPT") | Out-Null
+[System.Windows.MessageBox]::Show("GPTOPT repo installed, but no GUI entry file was found. Add Scripts\Invoke-GPTOPTGuidedControlCenter.ps1 as the guided app entry.", "GPTOPT") | Out-Null
 '@ | Set-Content -Path $Entry -Encoding UTF8
 }
 
@@ -86,12 +92,14 @@ $Run = Join-Path $Root 'Run-GPTOPT.ps1'
 `$ErrorActionPreference = 'Stop'
 `$Root = Split-Path -Parent `$PSCommandPath
 `$Candidates = @(
+    (Join-Path `$Root 'Scripts\Invoke-GPTOPTGuidedControlCenter.ps1'),
     (Join-Path `$Root 'Scripts\Invoke-GPTOPTControlCenter.ps1'),
     (Join-Path `$Root 'Scripts\Invoke-GPTOPTAppGUI.ps1'),
     (Join-Path `$Root 'Launch-GPTOPT.ps1')
 )
 `$Entry = `$Candidates | Where-Object { Test-Path -LiteralPath `$_ } | Select-Object -First 1
 if (!`$Entry) { throw 'No GPTOPT GUI entry file found.' }
+Write-Host "[GPTOPT] Launching `$Entry" -ForegroundColor Green
 & `$Entry
 "@ | Set-Content -Path $Run -Encoding UTF8
 
@@ -117,5 +125,6 @@ try {
 }
 
 Say "Repo ready: $Root" 'Green'
+Say "Preferred entry: Guided Control Center, then Advanced fallback" 'Green'
 Say "Launching: $Run" 'Green'
 Start-Process powershell.exe -WorkingDirectory $Root -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$Run`""
