@@ -1,101 +1,84 @@
 # GPTOPT Gaming Assistant
 
-Central repository for a custom gaming optimization assistant focused on Windows 11 tuning, latency reduction, benchmarking, NVIDIA profile work, and practical troubleshooting for performance-sensitive PC gaming setups.
+GPTOPT is evolving into a safe, audit-first gaming control center for Windows gaming performance work. It keeps the merged HaloSight v0.4 workflow intact while adding the foundation for WinUtil/GhostOptimizer/RyTuneX-style pages that are telemetry-driven, reversible, and conservative by default.
 
-This repo now serves as the **single hub** for the earlier experimental repositories:
+## Control Center Entry Point
 
-- **PowerShell-Utility** → merged here as a real script and toolkit path
-- **nvidiaProfileInspector** → treated as an upstream companion/reference project for profile-level NVIDIA tuning
-- **Gpttest-** → treated as a learning/reference source for prompt-engineering patterns, not bundled content
+Run this from the repo root:
 
-## One-script entry point
+```text
+GPTOPT_LAUNCHER.cmd
+```
 
-Run this from PowerShell at the repo root:
+The launcher opens the GUI directly. There is no normal-user Start/Stop/Status command menu.
 
-`./Launch-GPTOPT.ps1`
+Top-level pages in this foundation:
 
-That launcher gives you one menu for:
-- a read-only system audit
-- docs and templates
-- preset checklist scripts
-- NIP preset files
-- registry bundle visibility
-- opening the repo folder directly
+- Dashboard
+- HaloSight
+- NVIDIA / Display
+- Audio / Sonar
+- Controller / HID
+- Windows Gaming Health
+- Apps / Tools
+- Reports
+- Advanced / Revert
 
-## What this repo is
+## HaloSight Workflow
 
-This repository is for building and maintaining a custom GPT / assistant that can:
+HaloSight remains the active capture workflow:
 
-- analyze gaming-performance issues
-- suggest safe Windows 11 tuning steps
-- explain NVIDIA Profile Inspector concepts and profile strategy
-- guide benchmarking with CapFrameX, RTSS, PresentMon, and similar tools
-- provide rollback-aware scripts and concise operating guidance
+1. Click `Ready for Halo?`.
+2. Click `Start Session` before a match.
+3. Play and capture with your normal tools.
+4. Click `Stop + Build Upload`.
+5. Click `Copy Upload Zip Path` or `Open Upload Folder`.
 
-## Included files
+## NVIDIA / Display
 
-- `Launch-GPTOPT.ps1` — single-entry toolkit launcher
-- `instructions.txt` — core assistant behavior and response format
-- `prompt_examples.json` — sample user prompts / conversation starters
-- `GPT_Builder_Setup_Guide.txt` — setup guide for importing into a custom GPT
-- `Scripts/Ultimate-Utility.ps1` — utility script with a read-only audit path
-- `Profiles/Competitive-Latency-Baseline.ps1` — competitive tuning checklist script
-- `Profiles/Visual-Quality-Baseline.ps1` — image-quality tuning checklist script
-- `NIP/GPTOPT-Competitive-Latency-Baseline.nip` — competitive preset in actual export-style XML format
-- `NIP/GPTOPT-Visual-Quality-Baseline.nip` — visual-quality preset in actual export-style XML format
-- `NIP/GPTOPT-Balanced-Baseline.nip` — balanced preset in actual export-style XML format
-- `NIP/GPTOPT-Halo-Infinite-Competitive.nip` — Halo Infinite competitive preset in actual export-style XML format
-- `NIP/GPTOPT-Global-Safe-Baseline.nip` — conservative global preset in actual export-style XML format
-- `NIP/README.md` — notes on current NIP structure and scope
-- `Registry/MPO-Disable.reg` — MPO disable bundle
-- `Registry/MPO-Restore.reg` — MPO restore bundle
-- `Registry/README.md` — notes for registry bundle use
-- `docs/UPSTREAM_SOURCES.md` — explains how the old repos map into this one
-- `docs/BENCHMARK_ANALYSIS_TEMPLATE.md` — reusable benchmark comparison template
-- `docs/NVIDIA_PROFILE_STRATEGY.md` — guidance for explaining and validating NPI changes
-- `docs/WINDOWS_GRAPHICS_BASELINE.md` — baseline questions and validation order for Windows graphics tuning
-- `docs/CAPFRAMEX_PRESENTMON_GUIDE.md` — capture-discipline guide
+The first new real page is `NVIDIA / Display`, and it is read-only in this PR. It reports:
 
-## Design principles
+- NVIDIA GPU detected
+- NVIDIA driver version
+- `nvidia-smi.exe` availability/path
+- NVIDIA Profile Inspector availability/path
+- HAGS current value
+- MPO current value
+- active display resolution/refresh when safely detectable
+- RTSS detected/running
+- MSI Afterburner detected/running
 
-1. Prefer reversible changes first.
-2. Explain tradeoffs clearly.
-3. Keep risky changes explicit.
-4. Validate with measurement tools.
-5. Keep the assistant concise, decisive, and technically grounded.
+Set `OptionalTools.NvidiaProfileInspectorPath` in `HaloSight\config\halosight.user.json` to override NVIDIA Profile Inspector detection.
 
-## Scope
+The NVIDIA safety policy source is `docs\NVIDIA_DRIVER_SETTINGS_KB.md`.
 
-### Windows / OS
-- gaming-oriented Windows tuning
-- rollback-aware registry and service guidance
-- safe-first troubleshooting paths
+## Safety Guarantees
 
-### GPU / NVIDIA
-- practical explanation of common NPI settings
-- profile strategy and profile-management workflow
-- latency / frametime / scaling tradeoff guidance
+This foundation is audit-first. It does not:
 
-### Benchmarks / diagnostics
-- CapFrameX, RTSS, PresentMon, event logs, and audit scripts
-- before/after verification structure
-- reusable analysis templates
+- inject into games
+- read game memory
+- manipulate input
+- close or clean browsers
+- change Halo priority
+- terminate game, browser, capture, overlay, or chat processes
+- reboot, log off, or shut down Windows
+- import `.nip` files
+- run `silentImport`
+- write NVIDIA profiles through NVAPI
+- change global NVIDIA driver profiles
 
-### Prompt / assistant behavior
-- response structure for high-signal technical help
-- reusable prompt patterns for diagnostics, rollback, and profile generation
+## Tests
 
-## Notes on upstream content
+Run from the repo root:
 
-This repository intentionally **does not re-bundle third-party notebook/course content** from other projects. When outside repos are useful, they are documented as references in `docs/UPSTREAM_SOURCES.md`.
+```text
+powershell -NoProfile -ExecutionPolicy Bypass -File HaloSight\tests\smoke_test.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Run-GPTOPT.ps1 -Mode test
+```
 
-## Current NIP status
+The smoke test parses PowerShell, validates JSON, checks the GUI foundation and NVIDIA page functions, verifies NVIDIA detection remains read-only, and scans runtime scripts for prohibited behavior.
 
-The repo now has real export-style XML `.nip` files based on a user-provided exported sample. The current presets only use setting names and IDs that were directly confirmed from that sample, so the structure is now grounded and the scope is intentionally controlled.
+## Older Toolkit Content
 
-## Recommended next additions
-
-- expand the XML preset library using more confirmed NPI setting IDs
-- add more game-specific `.nip` exports
-- add more rollback bundles once baseline handling is documented cleanly
-- add more targeted profile scripts
+The repo still contains earlier GPTOPT toolkit materials, prompt examples, profiles, registry notes, and benchmark docs. The Control Center foundation is now the primary user-facing direction; older advanced assets remain reference material unless explicitly wired into a safe GUI workflow.
