@@ -8,7 +8,9 @@ Add-Type -AssemblyName System.Windows.Forms
 $Root = Split-Path -Parent $PSScriptRoot
 $Script = Join-Path $PSScriptRoot "HaloSight.ps1"
 $SettingsScript = Join-Path $PSScriptRoot "HaloSightSettings.ps1"
+$AuditScript = Join-Path $PSScriptRoot "GPTOPTAudit.ps1"
 . $SettingsScript
+. $AuditScript
 
 $Config = Get-HaloSightConfig
 $SessionRoot = [Environment]::ExpandEnvironmentVariables($Config.SessionRoot)
@@ -273,6 +275,7 @@ function Show-SettingsWindow {
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
+      <RowDefinition Height="260"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
@@ -308,11 +311,56 @@ function Show-SettingsWindow {
 
     <UniformGrid Name="DashboardGrid" Grid.Row="2" Columns="4" Margin="0,0,0,10"/>
 
-    <TextBox Name="LogBox" Grid.Row="3" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
+    <TabControl Name="ControlCenterTabs" Grid.Row="3" Margin="0,0,0,10" Background="#111827" BorderBrush="#334155">
+      <TabItem Header="Audio / Sonar">
+        <DockPanel Margin="8">
+          <Button Name="RefreshAudioAuditBtn" DockPanel.Dock="Top" HorizontalAlignment="Right" Margin="0,0,0,6" Content="Refresh Audio Audit"/>
+          <TextBox Name="AudioAuditBox" IsReadOnly="True" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
+                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" AcceptsReturn="True"/>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Controller / HID">
+        <DockPanel Margin="8">
+          <Button Name="RefreshControllerAuditBtn" DockPanel.Dock="Top" HorizontalAlignment="Right" Margin="0,0,0,6" Content="Refresh Controller Audit"/>
+          <TextBox Name="ControllerAuditBox" IsReadOnly="True" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
+                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" AcceptsReturn="True"/>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Windows Gaming Health">
+        <DockPanel Margin="8">
+          <Button Name="RefreshWindowsAuditBtn" DockPanel.Dock="Top" HorizontalAlignment="Right" Margin="0,0,0,6" Content="Refresh Windows Gaming Audit"/>
+          <TextBox Name="WindowsAuditBox" IsReadOnly="True" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
+                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" AcceptsReturn="True"/>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Apps / Tools">
+        <DockPanel Margin="8">
+          <Button Name="RefreshAppsAuditBtn" DockPanel.Dock="Top" HorizontalAlignment="Right" Margin="0,0,0,6" Content="Refresh Apps Audit"/>
+          <TextBox Name="AppsAuditBox" IsReadOnly="True" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
+                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" AcceptsReturn="True"/>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Reports">
+        <DockPanel Margin="8">
+          <Button Name="RefreshReportsAuditBtn" DockPanel.Dock="Top" HorizontalAlignment="Right" Margin="0,0,0,6" Content="Refresh Reports Audit"/>
+          <TextBox Name="ReportsAuditBox" IsReadOnly="True" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
+                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" AcceptsReturn="True"/>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Advanced / Revert">
+        <DockPanel Margin="8">
+          <Button Name="RefreshAdvancedAuditBtn" DockPanel.Dock="Top" HorizontalAlignment="Right" Margin="0,0,0,6" Content="Refresh Advanced Audit"/>
+          <TextBox Name="AdvancedAuditBox" IsReadOnly="True" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
+                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" AcceptsReturn="True"/>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+
+    <TextBox Name="LogBox" Grid.Row="4" Background="#020617" Foreground="#E5E7EB" FontFamily="Consolas"
              FontSize="13" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
              HorizontalScrollBarVisibility="Auto" AcceptsReturn="True"/>
 
-    <TextBlock Name="Footer" Grid.Row="4" Foreground="#94A3B8" Margin="0,8,0,0"
+    <TextBlock Name="Footer" Grid.Row="5" Foreground="#94A3B8" Margin="0,8,0,0"
                Text="Flow: Start Session -> play/capture match -> Stop + Build Upload -> send _UPLOAD.zip"/>
   </Grid>
 </Window>
@@ -325,6 +373,14 @@ $LogBox = $window.FindName("LogBox")
 $Footer = $window.FindName("Footer")
 $DashboardGrid = $window.FindName("DashboardGrid")
 $DashboardCards = @{}
+$AuditBoxes = @{
+    Audio = $window.FindName("AudioAuditBox")
+    Controller = $window.FindName("ControllerAuditBox")
+    Windows = $window.FindName("WindowsAuditBox")
+    Apps = $window.FindName("AppsAuditBox")
+    Reports = $window.FindName("ReportsAuditBox")
+    Advanced = $window.FindName("AdvancedAuditBox")
+}
 $script:HaloSightCommandRunning = $false
 $script:HaloSightRunningProcess = $null
 
@@ -412,6 +468,26 @@ function Update-HaloSightDashboardCards {
     }
     Update-HaloSightButtonStates $dashboardState
     return $dashboardState
+}
+
+function Set-GPTOPTAuditTabText {
+    param([Parameter(Mandatory=$true)][ValidateSet('Audio','Controller','Windows','Apps','Reports','Advanced')][string]$Name)
+    Reload-HSConfig
+    $text = switch($Name){
+        'Audio' { Get-GPTOPTAudioSonarAudit }
+        'Controller' { Get-GPTOPTControllerHidAudit }
+        'Windows' { Get-GPTOPTWindowsGamingHealthAudit }
+        'Apps' { Get-GPTOPTAppsToolsAudit }
+        'Reports' { Get-GPTOPTReportsAudit -SessionRoot $SessionRoot }
+        'Advanced' { Get-GPTOPTAdvancedRevertAudit -RepoRoot (Split-Path -Parent $Root) }
+    }
+    $AuditBoxes[$Name].Text = $text
+}
+
+function Update-GPTOPTAuditTabs {
+    foreach($name in @('Audio','Controller','Windows','Apps','Reports','Advanced')){
+        Set-GPTOPTAuditTabText -Name $name
+    }
 }
 
 function Append-Log($text){
@@ -534,7 +610,32 @@ $window.FindName("ReadyBtn").Add_Click({
 
 $window.FindName("RefreshBtn").Add_Click({
     Update-HaloSightDashboardCards | Out-Null
+    Update-GPTOPTAuditTabs
     $Footer.Text = "Status refreshed."
+})
+
+$window.FindName("RefreshAudioAuditBtn").Add_Click({
+    Set-GPTOPTAuditTabText -Name 'Audio'
+})
+
+$window.FindName("RefreshControllerAuditBtn").Add_Click({
+    Set-GPTOPTAuditTabText -Name 'Controller'
+})
+
+$window.FindName("RefreshWindowsAuditBtn").Add_Click({
+    Set-GPTOPTAuditTabText -Name 'Windows'
+})
+
+$window.FindName("RefreshAppsAuditBtn").Add_Click({
+    Set-GPTOPTAuditTabText -Name 'Apps'
+})
+
+$window.FindName("RefreshReportsAuditBtn").Add_Click({
+    Set-GPTOPTAuditTabText -Name 'Reports'
+})
+
+$window.FindName("RefreshAdvancedAuditBtn").Add_Click({
+    Set-GPTOPTAuditTabText -Name 'Advanced'
 })
 
 $window.FindName("StatusBtn").Add_Click({
@@ -586,6 +687,7 @@ $window.FindName("ClearBtn").Add_Click({
 Append-Log "HaloSight GUI ready."
 Append-Log "Use Settings before capture if you want to change evidence folders, limits, or upload behavior."
 Update-HaloSightDashboardCards | Out-Null
+Update-GPTOPTAuditTabs
 if($OpenSettings){
     $window.Add_ContentRendered({ Show-SettingsWindow })
 }
