@@ -95,7 +95,17 @@
       "status": "experimental",
       "role": "fallback profile for games without a dedicated profile yet",
       "preferredLimiter": "profile-dependent",
-      "knownBaseline": "Use universal PC checks, detect executable, avoid unsafe config writes until a profile exists."
+      "knownBaseline": "Use universal PC checks, detect executable, avoid unsafe config writes until a profile exists.",
+      "warmupRoutine": {
+        "durationMinutes": 15,
+        "steps": [
+          { "name": "Confirm input device", "goal": "Use the intended controller or mouse without duplicate virtual devices.", "stopCondition": "Input is detected and feels normal." },
+          { "name": "Confirm audio route", "goal": "Hear game and voice chat through the intended device.", "stopCondition": "Game and voice audio are clear." },
+          { "name": "Run movement warmup", "goal": "Bring movement timing up to session speed.", "stopCondition": "Movement feels automatic." },
+          { "name": "Run aim warmup", "goal": "Settle tracking and precision before ranked play.", "stopCondition": "Aim feels controlled instead of forced." },
+          { "name": "Play one low-stress match", "goal": "Validate the full setup under normal gameplay.", "stopCondition": "No setup issue distracts from play." }
+        ]
+      }
     }
   ]
 }
