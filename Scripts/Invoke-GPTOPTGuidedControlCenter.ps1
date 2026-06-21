@@ -12,10 +12,12 @@ $UserDataDir = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 
 $HealthModelPath = Join-Path $KnowledgeDir 'gptopt-health-model.json'
 $ProfileSchemaPath = Join-Path $KnowledgeDir 'game-profile-schema.json'
 $GuidanceLibraryPath = Join-Path $KnowledgeDir 'gptopt-guidance-library.json'
+$SessionAppCatalogPath = Join-Path $KnowledgeDir 'session-app-catalog.json'
 $SafetyScanner = Join-Path $PSScriptRoot 'Test-GPTOPTSafety.ps1'
 $AdvancedControlCenter = Join-Path $PSScriptRoot 'Invoke-GPTOPTControlCenter.ps1'
 $LegacyControlCenter = Join-Path $PSScriptRoot 'Invoke-GPTOPTAppGUI.ps1'
 $SessionInsightsModule = Join-Path $PSScriptRoot 'GPTOPT.SessionInsights.ps1'
+$SessionStackModule = Join-Path $PSScriptRoot 'GPTOPT.SessionStack.ps1'
 
 New-Item -ItemType Directory -Force -Path $ReportsDir,$UserDataDir | Out-Null
 
@@ -23,6 +25,10 @@ if (-not (Test-Path -LiteralPath $SessionInsightsModule)) {
     throw "Session insights module not found: $SessionInsightsModule"
 }
 . $SessionInsightsModule
+if (-not (Test-Path -LiteralPath $SessionStackModule)) {
+    throw "Session stack module not found: $SessionStackModule"
+}
+. $SessionStackModule
 
 function Read-JsonFile {
     param(
@@ -350,7 +356,8 @@ function Write-GuidedReport {
         [string]$ProfileName,
         [object[]]$RoutineSteps = @(),
         [string]$SessionFocus = '',
-        [object]$Insights = $null
+        [object]$Insights = $null,
+        [object[]]$SessionStack = @()
     )
 
     $path = Join-Path $ReportsDir ("GPTOPT-GuidedReadiness_{0}.md" -f (Get-Date -Format 'yyyyMMdd_HHmmss'))
@@ -380,6 +387,13 @@ function Write-GuidedReport {
     if ($SessionFocus.Trim()) {
         $lines += ''
         $lines += "Session focus: $($SessionFocus.Trim())"
+    }
+    if ($SessionStack.Count -gt 0) {
+        $lines += ''
+        $lines += '## Session Setup'
+        foreach ($app in $SessionStack) {
+            $lines += "- [$($app.Status)] $($app.DisplayName) ($($app.Role)): $($app.Why)"
+        }
     }
     if ($null -ne $Insights) {
         $lines += ''
@@ -515,6 +529,22 @@ $xaml = @'
         </StackPanel>
        </Grid>
       </TabItem>
+      <TabItem Header="Session Setup">
+        <Grid Margin="14">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <DockPanel Grid.Row="0" LastChildFill="True">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+              <Button Name="RefreshStackBtn" Content="Refresh" Width="90" Height="34" Margin="8,0,0,0"/>
+              <Button Name="PrepareSessionBtn" Content="Prepare Session" Width="140" Height="34" Margin="8,0,0,0"/>
+            </StackPanel>
+            <StackPanel>
+              <TextBlock Text="Session Setup" FontSize="22" FontWeight="Bold" Foreground="#F4F4F4"/>
+              <TextBlock Name="SessionStackStatusText" Text="Checks the selected profile's installed session apps." TextWrapping="Wrap" Foreground="#B8C0C8" Margin="0,4,0,14"/>
+            </StackPanel>
+          </DockPanel>
+          <TextBox Grid.Row="1" Name="SessionStackBox" Height="430" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas" Margin="0,10,0,0"/>
+        </Grid>
+      </TabItem>
       <TabItem Header="Pre-Game Routine">
         <Grid Margin="14">
           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -619,6 +649,8 @@ $GuidanceBox = $Window.FindName('GuidanceBox')
 $InsightsStatusText = $Window.FindName('InsightsStatusText')
 $InsightSummaryBox = $Window.FindName('InsightSummaryBox')
 $InsightRecommendationsBox = $Window.FindName('InsightRecommendationsBox')
+$SessionStackStatusText = $Window.FindName('SessionStackStatusText')
+$SessionStackBox = $Window.FindName('SessionStackBox')
 
 $Profiles = @(Get-GuidedProfiles)
 foreach ($profile in $Profiles) {
@@ -631,6 +663,7 @@ $script:LastQueue = @()
 $script:LastVerdict = 'Not audited'
 $script:LastProfileName = [string]$Profiles[0].DisplayName
 $script:LastInsights = $null
+$script:LastSessionStack = @()
 
 function Get-SelectedProfile {
     $index = $ProfileBox.SelectedIndex
@@ -702,6 +735,25 @@ function Update-RecentReviews {
         "$label - $($review.ProfileName)`r`n  Rating: $($review.Rating)`r`n  Input: $($review.InputFeel) | Audio: $($review.AudioConfidence)`r`n  Warmup: $($review.WarmupOutcome) | Routine: $($review.RoutineCompleted)/$($review.RoutineTotal)`r`n  Focus: $($review.SessionFocus)`r`n"
     }
     Set-TextBoxLines -TextBox $RecentReviewsBox -Lines $lines
+}
+
+function Refresh-SessionStack {
+    $profile = Get-SelectedProfile
+    $catalog = Read-JsonFile -Path $SessionAppCatalogPath -Fallback ([pscustomobject]@{ apps = @(); profiles = @() })
+    $plan = @(Get-GPTOPTSessionStackPlan -Catalog $catalog -ProfileId $profile.Id)
+    $script:LastSessionStack = $plan
+
+    $running = @($plan | Where-Object { $_.Status -eq 'Running' }).Count
+    $ready = @($plan | Where-Object { $_.Status -eq 'ReadyToStart' }).Count
+    $SessionStackStatusText.Text = "$running running, $ready ready to start for $($profile.DisplayName)."
+
+    $lines = foreach ($app in $plan) {
+        "[$($app.Status)] $($app.DisplayName) - $($app.Role)`r`n  Why: $($app.Why)`r`n  Risk: $($app.Risk)`r`n  Undo: $($app.Undo)`r`n"
+    }
+    if ($lines.Count -eq 0) {
+        $lines = @('No session-app mapping exists for this profile.')
+    }
+    Set-TextBoxLines -TextBox $SessionStackBox -Lines $lines
 }
 
 function Refresh-Insights {
@@ -783,7 +835,7 @@ $Window.FindName('AuditBtn').Add_Click({
 $Window.FindName('ReportBtn').Add_Click({
     try {
         if ($script:LastCards.Count -eq 0) { Refresh-GuidedView }
-        $path = Write-GuidedReport -Cards $script:LastCards -Queue $script:LastQueue -Verdict $script:LastVerdict -ProfileName $script:LastProfileName -RoutineSteps @(Get-CurrentRoutineState) -SessionFocus $SessionFocusBox.Text -Insights $script:LastInsights
+        $path = Write-GuidedReport -Cards $script:LastCards -Queue $script:LastQueue -Verdict $script:LastVerdict -ProfileName $script:LastProfileName -RoutineSteps @(Get-CurrentRoutineState) -SessionFocus $SessionFocusBox.Text -Insights $script:LastInsights -SessionStack $script:LastSessionStack
         [System.Windows.MessageBox]::Show("Report saved:`r`n$path", 'GPTOPT Guided Control Center') | Out-Null
     } catch {
         [System.Windows.MessageBox]::Show($_.Exception.Message, 'GPTOPT Guided Control Center') | Out-Null
@@ -801,6 +853,29 @@ $Window.FindName('AdvancedBtn').Add_Click({
 
 $DetailsToggle.Add_Checked({ $DetailsBox.Visibility = 'Visible' })
 $DetailsToggle.Add_Unchecked({ $DetailsBox.Visibility = 'Collapsed' })
+$Window.FindName('RefreshStackBtn').Add_Click({ Refresh-SessionStack })
+$Window.FindName('PrepareSessionBtn').Add_Click({
+    try {
+        Refresh-SessionStack
+        $launchable = @($script:LastSessionStack | Where-Object { $_.Status -eq 'ReadyToStart' })
+        if ($launchable.Count -eq 0) {
+            [System.Windows.MessageBox]::Show('No installed session apps need to be started. Missing and manual items were left unchanged.', 'GPTOPT Session Setup') | Out-Null
+            return
+        }
+
+        $names = ($launchable.DisplayName | ForEach-Object { "- $_" }) -join "`r`n"
+        $message = "Start these existing applications?`r`n`r`n$names`r`n`r`nGPTOPT will not install software, edit settings, launch the game, stop processes, or replace Timer Holder."
+        $choice = [System.Windows.MessageBox]::Show($message, 'Prepare Session', [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+        if ($choice -ne [System.Windows.MessageBoxResult]::Yes) { return }
+
+        $results = @(Invoke-GPTOPTSessionStackPlan -Plan $script:LastSessionStack -Confirm:$false)
+        $resultLines = @($results | Where-Object { $_.Outcome -ne 'Skipped' } | ForEach-Object { "$($_.DisplayName): $($_.Outcome)" })
+        Refresh-SessionStack
+        [System.Windows.MessageBox]::Show(($resultLines -join "`r`n"), 'GPTOPT Session Setup') | Out-Null
+    } catch {
+        [System.Windows.MessageBox]::Show($_.Exception.Message, 'GPTOPT Session Setup') | Out-Null
+    }
+})
 $Window.FindName('ResetRoutineBtn').Add_Click({ Initialize-Routine; $SessionFocusBox.Clear() })
 $Window.FindName('SaveReviewBtn').Add_Click({
     try {
@@ -817,6 +892,7 @@ $ProfileBox.Add_SelectionChanged({
     if ($ProfileBox.SelectedIndex -ge 0) {
         Initialize-Routine
         Initialize-SessionReview
+        Refresh-SessionStack
         Refresh-Insights
         Refresh-Guidance
         Refresh-GuidedView
@@ -830,6 +906,7 @@ $WarmupOutcomeBox.SelectedIndex = 0
 Initialize-Routine
 Initialize-SessionReview
 Update-RecentReviews
+Refresh-SessionStack
 Refresh-Insights
 Refresh-Guidance
 Refresh-GuidedView
