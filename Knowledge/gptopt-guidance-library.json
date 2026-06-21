@@ -65,17 +65,17 @@
     {
       "id": "session.review.loop",
       "title": "Session reviews create player-specific evidence",
-      "summary": "GPTOPT stores rating, input feel, audio confidence, warmup outcome, routine completion, and notes in local app data.",
-      "whyItMatters": "Repeated observations can separate persistent setup problems from one bad match or a one-off feeling.",
+      "summary": "GPTOPT stores session feedback locally and analyzes up to 30 reviews per game profile for recurring input, audio, warmup, and rating patterns.",
+      "whyItMatters": "Profile-scoped trends help separate recurring setup friction from one bad match and produce a focused next-session priority.",
       "evidenceType": "Product learning model",
       "confidence": "Medium",
       "appliesTo": [
         "all"
       ],
-      "sourceLabel": "Local session review contract",
-      "sourcePath": "Scripts/Invoke-GPTOPTGuidedControlCenter.ps1",
+      "sourceLabel": "Session insights engine and Guided Control Center",
+      "sourcePath": "Scripts/GPTOPT.SessionInsights.ps1",
       "verifiedOn": "2026-06-20",
-      "caveat": "Current reviews are descriptive history; they do not yet calculate trends or automatically change settings."
+      "caveat": "Recommendations are observational, require repeated samples before flagging patterns, and never change settings automatically."
     }
   ]
 }
