@@ -15,6 +15,7 @@ $AdvancedControlPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTControlCenter.p
 $BootstrapPath = Join-Path $RepoRoot 'gptopt.ps1'
 $SafetyPath = Join-Path $RepoRoot 'Scripts\Test-GPTOPTSafety.ps1'
 $GuidancePath = Join-Path $RepoRoot 'Knowledge\gptopt-guidance-library.json'
+$SessionInsightsPath = Join-Path $RepoRoot 'Scripts\GPTOPT.SessionInsights.ps1'
 
 function Assert($Condition, $Message){
     if(-not $Condition){ throw $Message }
@@ -30,7 +31,7 @@ Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.ps1' |
 
 Assert (Test-Path -LiteralPath $GuidancePath) "$GuidancePath missing."
 
-foreach($path in @($RunGptOptPath,$GuidedControlPath,$AdvancedControlPath,$BootstrapPath,$SafetyPath)){
+foreach($path in @($RunGptOptPath,$GuidedControlPath,$AdvancedControlPath,$BootstrapPath,$SafetyPath,$SessionInsightsPath)){
     Assert (Test-Path -LiteralPath $path) "$path missing."
     Assert-Parses $path
 }
@@ -100,6 +101,8 @@ Assert ($guidedText -match 'Session Review' -and $guidedText -match 'Save-Sessio
 Assert ($guidedText -match 'LocalApplicationData' -and $guidedText -match 'session_\{0\}\.json' -and $guidedText -match 'RoutineCompleted') 'Session reviews must use local app data and capture routine completion.'
 Assert ($guidedText -match 'Input Feel' -and $guidedText -match 'Audio Confidence' -and $guidedText -match 'Warmup Outcome') 'Session review must capture player-performance signals.'
 Assert ($guidedText -match 'Why This Matters' -and $guidedText -match 'Get-GuidanceEntries' -and $guidedText -match 'Refresh-Guidance') 'Guided Control Center must expose provenance-backed guidance.'
+Assert ($guidedText -match 'Your Session Patterns' -and $guidedText -match 'Refresh-Insights' -and $guidedText -match 'LastInsights') 'Guided Control Center must turn session history into recommendations.'
+Assert ($guidedText -match '## Session Insights' -and $guidedText -match 'Next Session Recommendations') 'Guided reports must include session insights.'
 Assert ($guidedText -match 'ApplicationDetectionLevel\\s\*=\\s\*2' -and $guidedText -match 'Get-SonarState') 'Guided readiness must require RTSS detection level 2 and use Sonar device fallback.'
 Assert ($guidedText -match 'Classification=Cleanup' -and $guidedText -match 'Classification=Servicing') 'Guided readiness must distinguish cleanup-only and servicing reboot states.'
 Assert ($guidedText -notmatch '(?i)Set-ItemProperty|New-ItemProperty|Remove-ItemProperty|reg\.exe\s+add|reg\.exe\s+delete|Restart-Computer|shutdown\.exe') 'Guided Control Center must not apply risky settings.'
@@ -112,6 +115,20 @@ $safetyText = Get-Content -Raw -LiteralPath $SafetyPath
 Assert ($safetyText -match 'root\\Microsoft\\Windows\\DeviceGuard') 'Safety scan must query Win32_DeviceGuard from the DeviceGuard namespace.'
 Assert ($safetyText -match 'CBS PackagesPending' -and $safetyText -match 'Classification = ''Cleanup''' -and $safetyText -match 'Classification = ''Servicing''') 'Safety scan must split servicing and cleanup-only reboot states.'
 Assert ($safetyText -match '\$null -eq \$renameValue' -and $safetyText -match '\{ @\(\) \} else \{ @\(\$renameValue\) \}') 'Safety scan must treat an absent pending rename marker as zero entries.'
+
+. $SessionInsightsPath
+$insightReviews = @(
+    [pscustomobject]@{ ProfileId='halo.infinite'; RecordedAt='2026-06-20T04:00:00Z'; Rating='2 - Off'; InputFeel='Delayed'; AudioConfidence='Wrong route'; WarmupOutcome='Needed more' },
+    [pscustomobject]@{ ProfileId='halo.infinite'; RecordedAt='2026-06-19T04:00:00Z'; Rating='3 - Mixed'; InputFeel='Over-aiming'; AudioConfidence='Hard to locate'; WarmupOutcome='Skipped' },
+    [pscustomobject]@{ ProfileId='halo.infinite'; RecordedAt='2026-06-18T04:00:00Z'; Rating='3 - Mixed'; InputFeel='Consistent'; AudioConfidence='Clear'; WarmupOutcome='Ready' },
+    [pscustomobject]@{ ProfileId='generic.shooter'; RecordedAt='2026-06-17T04:00:00Z'; Rating='5 - Excellent'; InputFeel='Consistent'; AudioConfidence='Clear'; WarmupOutcome='Ready' }
+)
+$sessionInsights = Get-GPTOPTSessionInsights -Reviews $insightReviews -ProfileId 'halo.infinite'
+Assert ($sessionInsights.SessionCount -eq 3) 'Session insights must stay scoped to the selected profile.'
+Assert ($sessionInsights.AverageRating -eq 2.67) 'Session insights average rating calculation is incorrect.'
+Assert (($sessionInsights.Recommendations -join ' ') -match 'input consistency') 'Session insights must prioritize recurring input issues.'
+Assert (($sessionInsights.Recommendations -join ' ') -match 'audio routes') 'Session insights must prioritize recurring audio issues.'
+Assert (($sessionInsights.Recommendations -join ' ') -match 'warmup') 'Session insights must prioritize recurring warmup issues.'
 
 $guidance = Get-Content -Raw -LiteralPath $GuidancePath | ConvertFrom-Json
 Assert ($guidance.version -eq 1 -and @($guidance.entries).Count -ge 5) 'Guidance library must contain versioned evidence entries.'
