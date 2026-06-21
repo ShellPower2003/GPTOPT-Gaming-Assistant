@@ -619,7 +619,7 @@ function Initialize-SessionReview {
     if ($questions.Count -eq 0) {
         $questions = @('Did input feel consistent?', 'Was audio routing correct?', 'Did the warmup prepare you?', 'What should change next session?')
     }
-    $ReviewPromptText.Text = ($questions | ForEach-Object { "• $_" }) -join "`r`n"
+    $ReviewPromptText.Text = ($questions | ForEach-Object { "- $_" }) -join "`r`n"
 }
 
 function Update-RecentReviews {
