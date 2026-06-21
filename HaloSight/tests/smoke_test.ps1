@@ -88,6 +88,8 @@ Assert ($guidedText -match 'Game Profile' -and $guidedText -match 'Get-GuidedPro
 Assert ($guidedText -match 'halo\.infinite' -and $guidedText -match 'generic\.shooter') 'Guided Control Center must support Halo without being Halo-only.'
 Assert ($guidedText -match 'Show Details' -and $guidedText -match 'DetailsBox.Visibility = ''Collapsed''') 'Guided Control Center must hide technical details by default.'
 Assert ($guidedText -match 'Recommended Action Queue' -and $guidedText -match 'WhatItChanges' -and $guidedText -match 'BackupUndoPath' -and $guidedText -match 'RequiresReboot') 'Guided queue must explain changes, backup/undo, and reboot.'
+Assert ($guidedText -match 'Pre-Game Routine' -and $guidedText -match 'Initialize-Routine' -and $guidedText -match 'RoutineProgressText') 'Guided Control Center must include an interactive pre-game routine.'
+Assert ($guidedText -match 'Session Focus' -and $guidedText -match 'Get-CurrentRoutineState' -and $guidedText -match '## Pre-Game Routine') 'Guided reports must capture routine completion and session focus.'
 Assert ($guidedText -notmatch '(?i)Set-ItemProperty|New-ItemProperty|Remove-ItemProperty|reg\.exe\s+add|reg\.exe\s+delete|Restart-Computer|shutdown\.exe') 'Guided Control Center must not apply risky settings.'
 
 $guiText = Get-Content -Raw -LiteralPath (Join-Path $Root 'scripts\HaloSightGUI.ps1')
