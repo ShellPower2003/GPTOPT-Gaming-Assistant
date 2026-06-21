@@ -78,10 +78,11 @@ if (!(Test-Path -LiteralPath $Run)) {
         throw 'GPTOPT installed, but no launcher entry file was found.'
     }
 
-    $Run = Join-Path $Root 'GPTOPT-LaunchFallback.ps1'
+    $FallbackRun = Join-Path $Root 'GPTOPT-LaunchFallback.ps1'
     @('$ErrorActionPreference = ''Stop''', "& '$Entry'") |
-        Set-Content -LiteralPath $Run -Encoding UTF8
-    Say "Tracked router missing; created fallback launcher: $Run" 'Yellow'
+        Set-Content -LiteralPath $FallbackRun -Encoding UTF8
+    $Run = $FallbackRun
+    Say "Tracked router missing; created fallback launcher: $FallbackRun" 'Yellow'
 }
 
 $Cmd = Join-Path $Root 'GPTOPT_LAUNCHER.cmd'
