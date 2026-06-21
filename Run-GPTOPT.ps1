@@ -257,7 +257,7 @@ function Show-GPTOPTControl {
     Write-Host 'Available modes:'
     @(
         [pscustomobject]@{ Mode = 'guided'; Description = 'Launch Guided Control Center first' },
-        [pscustomobject]@{ Mode = 'gui'; Description = 'Alias for guided mode' },
+        [pscustomobject]@{ Mode = 'gui'; Description = 'Launch legacy HaloSight capture GUI' },
         [pscustomobject]@{ Mode = 'advanced'; Description = 'Launch Advanced Control Center' },
         [pscustomobject]@{ Mode = 'safety'; Description = 'Run compatibility and safety scan' },
         [pscustomobject]@{ Mode = 'recommend'; Description = 'Show context-aware recommendations' },
@@ -281,15 +281,7 @@ switch ($Mode) {
         Invoke-GPTOPTScript -Path $AppGui
     }
     'gui' {
-        if (Test-Path -LiteralPath $GuidedGui) {
-            Invoke-GPTOPTScript -Path $GuidedGui
-        }
-
-        if (Test-Path -LiteralPath $AdvancedGui) {
-            Invoke-GPTOPTScript -Path $AdvancedGui
-        }
-
-        Invoke-GPTOPTScript -Path $AppGui
+        Invoke-GPTOPTScript -Path $HaloSightGui
     }
     'advanced' {
         if (Test-Path -LiteralPath $AdvancedGui) {
