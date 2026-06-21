@@ -10,6 +10,10 @@ $LauncherPath = Join-Path $Root 'GPTOPT_LAUNCHER.cmd'
 if(!(Test-Path -LiteralPath $LauncherPath)){ $LauncherPath = Join-Path $RepoRoot 'GPTOPT_LAUNCHER.cmd' }
 $RunGptOptPath = Join-Path $Root 'Run-GPTOPT.ps1'
 if(!(Test-Path -LiteralPath $RunGptOptPath)){ $RunGptOptPath = Join-Path $RepoRoot 'Run-GPTOPT.ps1' }
+$GuidedControlPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTGuidedControlCenter.ps1'
+$AdvancedControlPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTControlCenter.ps1'
+$BootstrapPath = Join-Path $RepoRoot 'gptopt.ps1'
+$SafetyPath = Join-Path $RepoRoot 'Scripts\Test-GPTOPTSafety.ps1'
 
 function Assert($Condition, $Message){
     if(-not $Condition){ throw $Message }
@@ -22,6 +26,11 @@ function Assert-Parses($Path){
 
 Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.ps1' |
     ForEach-Object { Assert-Parses $_.FullName }
+
+foreach($path in @($RunGptOptPath,$GuidedControlPath,$AdvancedControlPath,$BootstrapPath,$SafetyPath)){
+    Assert (Test-Path -LiteralPath $path) "$path missing."
+    Assert-Parses $path
+}
 
 Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.json' |
     ForEach-Object { $null = Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json }
@@ -61,15 +70,39 @@ try{
 }
 
 $launcherText = Get-Content -Raw -LiteralPath $LauncherPath
-Assert (($launcherText -match 'Run-GPTOPT\.ps1"?\s+-Mode\s+gui') -or ($launcherText -match 'HaloSightGUI\.ps1')) 'GPTOPT_LAUNCHER.cmd must launch the GUI-first path.'
+Assert ($launcherText -match 'Run-GPTOPT\.ps1"?\s+-Mode\s+guided') 'GPTOPT_LAUNCHER.cmd must launch Guided Mode first.'
 Assert ($launcherText -notmatch '(?i):menu|set /p|Select an option|HaloSight Start|HaloSight Stop|HaloSight Status|HaloSight Settings|Run Smoke Test') 'GPTOPT_LAUNCHER.cmd contains old menu workflow.'
 Assert ($launcherText -notmatch '(?i)HaloSight\.ps1"\s+-Mode\s+(start|stop|status|report)') 'GPTOPT_LAUNCHER.cmd exposes direct HaloSight modes.'
 
 $runText = Get-Content -Raw -LiteralPath $RunGptOptPath
-Assert ($runText -match '\[ValidateSet\(''gui'',''test''\)\]') 'Run-GPTOPT.ps1 must only expose gui/test modes.'
-Assert ($runText -match '\[string\]\$Mode\s*=\s*''gui''') 'Run-GPTOPT.ps1 must default to GUI mode.'
-Assert ($runText -match 'HaloSightGUI\.ps1') 'Run-GPTOPT.ps1 gui mode must launch HaloSightGUI.ps1.'
-Assert ($runText -notmatch "(?i)'(start|stop|status|settings)'") 'Run-GPTOPT.ps1 exposes removed normal-user modes.'
+Assert ($runText -match "'guided'" -and $runText -match "'gui'" -and $runText -match "'advanced'" -and $runText -match "'test'" -and $runText -match "'safety'" -and $runText -match "'recommend'" -and $runText -match "'queue'" -and $runText -match "'report'") 'Run-GPTOPT.ps1 must expose the app router modes.'
+Assert ($runText -match '\[string\]\$Mode\s*=\s*''guided''') 'Run-GPTOPT.ps1 must default to Guided Mode.'
+Assert ($runText -match 'Invoke-GPTOPTGuidedControlCenter\.ps1') 'Run-GPTOPT.ps1 guided/gui modes must launch the Guided Control Center first.'
+Assert ($runText -match 'Invoke-GPTOPTControlCenter\.ps1' -and $runText -match 'Invoke-GPTOPTAppGUI\.ps1') 'Run-GPTOPT.ps1 must keep Advanced Control Center fallback available.'
+Assert ($runText -notmatch '(?i)HaloSight\.ps1[\s\S]{0,160}-Mode\s+(start|stop|status|settings)') 'Run-GPTOPT.ps1 exposes direct HaloSight normal-user modes.'
+Assert ($runText -match 'Test-GPTOPTSafety\.ps1') 'Run-GPTOPT.ps1 must route to the safety scanner.'
+Assert ($runText -match 'New-GPTOPTPreviewQueue') 'Run-GPTOPT.ps1 must build a preview queue.'
+Assert ($runText -match 'New-GPTOPTReport') 'Run-GPTOPT.ps1 must generate reports.'
+
+$guidedText = Get-Content -Raw -LiteralPath $GuidedControlPath
+Assert ($guidedText -match 'Ready to Play' -and $guidedText -match 'Ready with Review Items' -and $guidedText -match 'Fix First') 'Guided Control Center must show readiness cards.'
+Assert ($guidedText -match 'Game Profile' -and $guidedText -match 'Get-GuidedProfiles') 'Guided Control Center must include a profile selector.'
+Assert ($guidedText -match 'halo\.infinite' -and $guidedText -match 'generic\.shooter') 'Guided Control Center must support Halo without being Halo-only.'
+Assert ($guidedText -match 'Show Details' -and $guidedText -match 'DetailsBox.Visibility = ''Collapsed''') 'Guided Control Center must hide technical details by default.'
+Assert ($guidedText -match 'Recommended Action Queue' -and $guidedText -match 'WhatItChanges' -and $guidedText -match 'BackupUndoPath' -and $guidedText -match 'RequiresReboot') 'Guided queue must explain changes, backup/undo, and reboot.'
+Assert ($guidedText -match 'Pre-Game Routine' -and $guidedText -match 'Initialize-Routine' -and $guidedText -match 'RoutineProgressText') 'Guided Control Center must include an interactive pre-game routine.'
+Assert ($guidedText -match 'Session Focus' -and $guidedText -match 'Get-CurrentRoutineState' -and $guidedText -match '## Pre-Game Routine') 'Guided reports must capture routine completion and session focus.'
+Assert ($guidedText -match 'ApplicationDetectionLevel\\s\*=\\s\*2' -and $guidedText -match 'Get-SonarState') 'Guided readiness must require RTSS detection level 2 and use Sonar device fallback.'
+Assert ($guidedText -match 'Classification=Cleanup' -and $guidedText -match 'Classification=Servicing') 'Guided readiness must distinguish cleanup-only and servicing reboot states.'
+Assert ($guidedText -notmatch '(?i)Set-ItemProperty|New-ItemProperty|Remove-ItemProperty|reg\.exe\s+add|reg\.exe\s+delete|Restart-Computer|shutdown\.exe') 'Guided Control Center must not apply risky settings.'
+
+$bootstrapText = Get-Content -Raw -LiteralPath $BootstrapPath
+Assert ($bootstrapText -notmatch 'Set-Content\s+-Path\s+\$Run' -and $bootstrapText -notmatch 'Set-Content\s+-LiteralPath\s+\$Run') 'Bootstrap must not overwrite the tracked Run-GPTOPT.ps1 router.'
+Assert ($bootstrapText -match 'GPTOPT-LaunchFallback\.ps1') 'Bootstrap must use a separate fallback launcher when the tracked router is missing.'
+
+$safetyText = Get-Content -Raw -LiteralPath $SafetyPath
+Assert ($safetyText -match 'root\\Microsoft\\Windows\\DeviceGuard') 'Safety scan must query Win32_DeviceGuard from the DeviceGuard namespace.'
+Assert ($safetyText -match 'CBS PackagesPending' -and $safetyText -match 'Classification = ''Cleanup''' -and $safetyText -match 'Classification = ''Servicing''') 'Safety scan must split servicing and cleanup-only reboot states.'
 
 $guiText = Get-Content -Raw -LiteralPath (Join-Path $Root 'scripts\HaloSightGUI.ps1')
 Assert ($guiText -match 'function Get-HaloSightDashboardState') 'Dashboard state function missing.'
