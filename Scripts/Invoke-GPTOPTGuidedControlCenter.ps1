@@ -15,8 +15,14 @@ $GuidanceLibraryPath = Join-Path $KnowledgeDir 'gptopt-guidance-library.json'
 $SafetyScanner = Join-Path $PSScriptRoot 'Test-GPTOPTSafety.ps1'
 $AdvancedControlCenter = Join-Path $PSScriptRoot 'Invoke-GPTOPTControlCenter.ps1'
 $LegacyControlCenter = Join-Path $PSScriptRoot 'Invoke-GPTOPTAppGUI.ps1'
+$SessionInsightsModule = Join-Path $PSScriptRoot 'GPTOPT.SessionInsights.ps1'
 
 New-Item -ItemType Directory -Force -Path $ReportsDir,$UserDataDir | Out-Null
+
+if (-not (Test-Path -LiteralPath $SessionInsightsModule)) {
+    throw "Session insights module not found: $SessionInsightsModule"
+}
+. $SessionInsightsModule
 
 function Read-JsonFile {
     param(
@@ -343,7 +349,8 @@ function Write-GuidedReport {
         [string]$Verdict,
         [string]$ProfileName,
         [object[]]$RoutineSteps = @(),
-        [string]$SessionFocus = ''
+        [string]$SessionFocus = '',
+        [object]$Insights = $null
     )
 
     $path = Join-Path $ReportsDir ("GPTOPT-GuidedReadiness_{0}.md" -f (Get-Date -Format 'yyyyMMdd_HHmmss'))
@@ -373,6 +380,18 @@ function Write-GuidedReport {
     if ($SessionFocus.Trim()) {
         $lines += ''
         $lines += "Session focus: $($SessionFocus.Trim())"
+    }
+    if ($null -ne $Insights) {
+        $lines += ''
+        $lines += '## Session Insights'
+        foreach ($line in @($Insights.SummaryLines)) {
+            $lines += "- $line"
+        }
+        $lines += ''
+        $lines += '### Next Session Recommendations'
+        foreach ($recommendation in @($Insights.Recommendations)) {
+            $lines += "- $recommendation"
+        }
     }
     $lines | Set-Content -LiteralPath $path -Encoding UTF8
     return $path
@@ -429,9 +448,11 @@ function Save-SessionReview {
 }
 
 function Get-RecentSessionReviews {
+    param([int]$Maximum = 5)
+
     $files = @(Get-ChildItem -LiteralPath $UserDataDir -File -Filter 'session_*.json' -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending |
-        Select-Object -First 5)
+        Select-Object -First $Maximum)
     foreach ($file in $files) {
         try {
             Get-Content -Raw -LiteralPath $file.FullName | ConvertFrom-Json
@@ -535,6 +556,26 @@ $xaml = @'
           </StackPanel>
         </Grid>
       </TabItem>
+      <TabItem Header="Insights">
+        <Grid Margin="14">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <StackPanel>
+            <TextBlock Text="Your Session Patterns" FontSize="22" FontWeight="Bold" Foreground="#F4F4F4"/>
+            <TextBlock Name="InsightsStatusText" Text="Session reviews become profile-specific recommendations after you play." TextWrapping="Wrap" Foreground="#B8C0C8" Margin="0,4,0,14"/>
+          </StackPanel>
+          <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,14,0">
+              <TextBlock Text="What the history shows" FontSize="17" FontWeight="Bold" Foreground="#F4F4F4"/>
+              <TextBox Name="InsightSummaryBox" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas" Margin="0,8,0,0"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1">
+              <TextBlock Text="Next session priorities" FontSize="17" FontWeight="Bold" Foreground="#F4F4F4"/>
+              <TextBox Name="InsightRecommendationsBox" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas" Margin="0,8,0,0"/>
+            </StackPanel>
+          </Grid>
+        </Grid>
+      </TabItem>
       <TabItem Header="Why This Matters">
         <Grid Margin="14">
           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
@@ -575,6 +616,9 @@ $WarmupOutcomeBox = $Window.FindName('WarmupOutcomeBox')
 $ReviewNotesBox = $Window.FindName('ReviewNotesBox')
 $RecentReviewsBox = $Window.FindName('RecentReviewsBox')
 $GuidanceBox = $Window.FindName('GuidanceBox')
+$InsightsStatusText = $Window.FindName('InsightsStatusText')
+$InsightSummaryBox = $Window.FindName('InsightSummaryBox')
+$InsightRecommendationsBox = $Window.FindName('InsightRecommendationsBox')
 
 $Profiles = @(Get-GuidedProfiles)
 foreach ($profile in $Profiles) {
@@ -586,6 +630,7 @@ $script:LastCards = @()
 $script:LastQueue = @()
 $script:LastVerdict = 'Not audited'
 $script:LastProfileName = [string]$Profiles[0].DisplayName
+$script:LastInsights = $null
 
 function Get-SelectedProfile {
     $index = $ProfileBox.SelectedIndex
@@ -659,6 +704,20 @@ function Update-RecentReviews {
     Set-TextBoxLines -TextBox $RecentReviewsBox -Lines $lines
 }
 
+function Refresh-Insights {
+    $profile = Get-SelectedProfile
+    $reviews = @(Get-RecentSessionReviews -Maximum 30)
+    $insights = Get-GPTOPTSessionInsights -Reviews $reviews -ProfileId $profile.Id -WindowSize 30
+    $script:LastInsights = $insights
+    $InsightsStatusText.Text = "$($insights.SessionCount) review(s) analyzed for $($profile.DisplayName)."
+
+    Set-TextBoxLines -TextBox $InsightSummaryBox -Lines @($insights.SummaryLines)
+    $recommendationLines = for ($index = 0; $index -lt $insights.Recommendations.Count; $index++) {
+        "$($index + 1). $($insights.Recommendations[$index])"
+    }
+    Set-TextBoxLines -TextBox $InsightRecommendationsBox -Lines $recommendationLines
+}
+
 function Refresh-Guidance {
     $profile = Get-SelectedProfile
     $entries = @(Get-GuidanceEntries -ProfileId $profile.Id)
@@ -724,7 +783,7 @@ $Window.FindName('AuditBtn').Add_Click({
 $Window.FindName('ReportBtn').Add_Click({
     try {
         if ($script:LastCards.Count -eq 0) { Refresh-GuidedView }
-        $path = Write-GuidedReport -Cards $script:LastCards -Queue $script:LastQueue -Verdict $script:LastVerdict -ProfileName $script:LastProfileName -RoutineSteps @(Get-CurrentRoutineState) -SessionFocus $SessionFocusBox.Text
+        $path = Write-GuidedReport -Cards $script:LastCards -Queue $script:LastQueue -Verdict $script:LastVerdict -ProfileName $script:LastProfileName -RoutineSteps @(Get-CurrentRoutineState) -SessionFocus $SessionFocusBox.Text -Insights $script:LastInsights
         [System.Windows.MessageBox]::Show("Report saved:`r`n$path", 'GPTOPT Guided Control Center') | Out-Null
     } catch {
         [System.Windows.MessageBox]::Show($_.Exception.Message, 'GPTOPT Guided Control Center') | Out-Null
@@ -748,6 +807,7 @@ $Window.FindName('SaveReviewBtn').Add_Click({
         $path = Save-SessionReview -Profile (Get-SelectedProfile) -Rating (Get-ComboBoxValue $RatingBox) -InputFeel (Get-ComboBoxValue $InputFeelBox) -AudioConfidence (Get-ComboBoxValue $AudioConfidenceBox) -WarmupOutcome (Get-ComboBoxValue $WarmupOutcomeBox) -Notes $ReviewNotesBox.Text
         $ReviewNotesBox.Clear()
         Update-RecentReviews
+        Refresh-Insights
         [System.Windows.MessageBox]::Show("Session review saved:`r`n$path", 'GPTOPT Guided Control Center') | Out-Null
     } catch {
         [System.Windows.MessageBox]::Show($_.Exception.Message, 'GPTOPT Guided Control Center') | Out-Null
@@ -757,6 +817,7 @@ $ProfileBox.Add_SelectionChanged({
     if ($ProfileBox.SelectedIndex -ge 0) {
         Initialize-Routine
         Initialize-SessionReview
+        Refresh-Insights
         Refresh-Guidance
         Refresh-GuidedView
     }
@@ -769,6 +830,7 @@ $WarmupOutcomeBox.SelectedIndex = 0
 Initialize-Routine
 Initialize-SessionReview
 Update-RecentReviews
+Refresh-Insights
 Refresh-Guidance
 Refresh-GuidedView
 $Window.ShowDialog() | Out-Null
