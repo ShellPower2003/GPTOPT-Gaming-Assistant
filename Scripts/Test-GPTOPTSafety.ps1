@@ -30,15 +30,18 @@ function Get-RegistryValue {
 function Get-FirstCimInstance {
     param(
         [string]$ClassName,
-        [string]$Filter = ''
+        [string]$Filter = '',
+        [string]$Namespace = ''
     )
 
     try {
-        if ($Filter) {
-            return Get-CimInstance -ClassName $ClassName -Filter $Filter -ErrorAction Stop | Select-Object -First 1
+        $arguments = @{
+            ClassName = $ClassName
+            ErrorAction = 'Stop'
         }
-
-        return Get-CimInstance -ClassName $ClassName -ErrorAction Stop | Select-Object -First 1
+        if ($Filter) { $arguments.Filter = $Filter }
+        if ($Namespace) { $arguments.Namespace = $Namespace }
+        return Get-CimInstance @arguments | Select-Object -First 1
     } catch {
         return $null
     }
@@ -63,7 +66,7 @@ function Get-SecureBootState {
 }
 
 function Get-VbsState {
-    $deviceGuard = Get-FirstCimInstance -ClassName 'Win32_DeviceGuard'
+    $deviceGuard = Get-FirstCimInstance -ClassName 'Win32_DeviceGuard' -Namespace 'root\Microsoft\Windows\DeviceGuard'
     if ($null -eq $deviceGuard) {
         return 'Unavailable'
     }
@@ -77,32 +80,49 @@ function Get-VbsState {
 }
 
 function Get-PendingRebootState {
-    $paths = @(
-        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending',
-        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired',
-        'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager'
+    $servicingPaths = [ordered]@{
+        'CBS RebootPending' = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'
+        'CBS PackagesPending' = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'
+        'Windows Update RebootRequired' = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
+    }
+
+    $servicingReasons = @(
+        foreach ($entry in $servicingPaths.GetEnumerator()) {
+            if (Test-Path -LiteralPath $entry.Value) { $entry.Key }
+        }
     )
+    $renameEntries = @(Get-RegistryValue -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name 'PendingFileRenameOperations')
 
-    $reasons = @()
-    foreach ($path in $paths) {
-        if ($path -like '*Session Manager') {
-            $value = Get-RegistryValue -Path $path -Name 'PendingFileRenameOperations'
-            if ($null -ne $value) {
-                $reasons += 'PendingFileRenameOperations'
-            }
-            continue
-        }
-
-        if (Test-Path -LiteralPath $path) {
-            $reasons += (Split-Path -Leaf $path)
+    if ($servicingReasons.Count -gt 0) {
+        return [pscustomobject]@{
+            Classification = 'Servicing'
+            Status = "Windows servicing reboot required: $($servicingReasons -join ', ')"
+            Recommendation = 'Restart before controlled benchmarks or ranked play.'
+            Evidence = "Classification=Servicing; Reasons=$($servicingReasons -join ', ')"
+            RequiresReboot = $true
+            Level = 'Warning'
         }
     }
 
-    if ($reasons.Count -eq 0) {
-        return 'No pending reboot markers detected'
+    if ($renameEntries.Count -gt 0) {
+        return [pscustomobject]@{
+            Classification = 'Cleanup'
+            Status = 'App or driver cleanup file is waiting for reboot. This is usually not a Windows servicing problem.'
+            Recommendation = 'Reboot later if this persists, or after installing drivers/updates.'
+            Evidence = "Classification=Cleanup; PendingFileRenameCount=$($renameEntries.Count); Entries=$($renameEntries -join ' | ')"
+            RequiresReboot = $RequiresReboot
+            Level = 'Info'
+        }
     }
 
-    return $reasons -join ', '
+    return [pscustomobject]@{
+        Classification = 'None'
+        Status = 'No pending reboot markers detected'
+        Recommendation = 'No action needed.'
+        Evidence = 'Classification=None'
+        RequiresReboot = $false
+        Level = 'Info'
+    }
 }
 
 function New-Check {
@@ -113,7 +133,8 @@ function New-Check {
         [string]$Level,
         [string]$Status,
         [string]$Recommendation,
-        [string]$Evidence
+        [string]$Evidence,
+        [bool]$RequiresReboot = $false
     )
 
     [pscustomobject]@{
@@ -166,8 +187,7 @@ $checks.Add((New-Check -Id 'game-dvr' -Name 'Game DVR' -Level 'Info' -Status "Ga
 $checks.Add((New-Check -Id 'secure-boot' -Name 'Secure Boot' -Level 'Info' -Status $secureBoot -Recommendation 'Secure Boot is reported for compatibility context only; GPTOPT does not change it.' -Evidence $secureBoot))
 $checks.Add((New-Check -Id 'vbs' -Name 'Virtualization based security' -Level 'Info' -Status $vbs -Recommendation 'VBS is reported for context only; this foundation router does not disable security features.' -Evidence $vbs))
 
-$pendingLevel = if ($pendingReboot -eq 'No pending reboot markers detected') { 'Info' } else { 'Warning' }
-$checks.Add((New-Check -Id 'pending-reboot' -Name 'Pending reboot markers' -Level $pendingLevel -Status $pendingReboot -Recommendation 'Finish existing Windows update or installer reboots before controlled benchmarks.' -Evidence $pendingReboot))
+$checks.Add((New-Check -Id 'pending-reboot' -Name 'Pending reboot markers' -Level $pendingReboot.Level -Status $pendingReboot.Status -Recommendation $pendingReboot.Recommendation -Evidence $pendingReboot.Evidence -RequiresReboot $pendingReboot.RequiresReboot))
 
 $toolEvidence = @(
     "CapFrameX=$([bool]$capFrameX)",
