@@ -77,7 +77,8 @@ Assert ($launcherText -notmatch '(?i)HaloSight\.ps1"\s+-Mode\s+(start|stop|statu
 $runText = Get-Content -Raw -LiteralPath $RunGptOptPath
 Assert ($runText -match "'guided'" -and $runText -match "'gui'" -and $runText -match "'advanced'" -and $runText -match "'test'" -and $runText -match "'safety'" -and $runText -match "'recommend'" -and $runText -match "'queue'" -and $runText -match "'report'") 'Run-GPTOPT.ps1 must expose the app router modes.'
 Assert ($runText -match '\[string\]\$Mode\s*=\s*''guided''') 'Run-GPTOPT.ps1 must default to Guided Mode.'
-Assert ($runText -match 'Invoke-GPTOPTGuidedControlCenter\.ps1') 'Run-GPTOPT.ps1 guided/gui modes must launch the Guided Control Center first.'
+Assert ($runText -match 'Invoke-GPTOPTGuidedControlCenter\.ps1') 'Run-GPTOPT.ps1 guided mode must launch the Guided Control Center first.'
+Assert ($runText -match "(?s)'gui'\s*\{\s*Invoke-GPTOPTScript\s+-Path\s+\$HaloSightGui\s*\}") 'Run-GPTOPT.ps1 gui mode must preserve the HaloSight capture GUI route.'
 Assert ($runText -match 'Invoke-GPTOPTControlCenter\.ps1' -and $runText -match 'Invoke-GPTOPTAppGUI\.ps1') 'Run-GPTOPT.ps1 must keep Advanced Control Center fallback available.'
 Assert ($runText -notmatch '(?i)HaloSight\.ps1[\s\S]{0,160}-Mode\s+(start|stop|status|settings)') 'Run-GPTOPT.ps1 exposes direct HaloSight normal-user modes.'
 Assert ($runText -match 'Test-GPTOPTSafety\.ps1') 'Run-GPTOPT.ps1 must route to the safety scanner.'
