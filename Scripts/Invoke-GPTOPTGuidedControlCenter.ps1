@@ -40,7 +40,14 @@ function Get-GuidedProfiles {
 
     foreach ($profile in @($health.gameProfiles)) {
         if ($null -eq $profile) { continue }
-        $routine = @($profile.playerLayer.warmup.defaultRoutine)
+        $routine = @()
+        if (
+            $profile.PSObject.Properties.Name -contains 'playerLayer' -and
+            $profile.playerLayer.PSObject.Properties.Name -contains 'warmup' -and
+            $profile.playerLayer.warmup.PSObject.Properties.Name -contains 'defaultRoutine'
+        ) {
+            $routine = @($profile.playerLayer.warmup.defaultRoutine)
+        }
         $profiles.Add([pscustomobject]@{
             Id = [string]$profile.id
             DisplayName = [string]$profile.name
@@ -53,7 +60,13 @@ function Get-GuidedProfiles {
     foreach ($profile in @($schema.defaultProfiles)) {
         if ($null -eq $profile) { continue }
         if (@($profiles | Where-Object { $_.Id -eq [string]$profile.id }).Count -gt 0) { continue }
-        $routine = @($profile.warmupRoutine.steps | ForEach-Object { [string]$_.name })
+        $routine = @()
+        if (
+            $profile.PSObject.Properties.Name -contains 'warmupRoutine' -and
+            $profile.warmupRoutine.PSObject.Properties.Name -contains 'steps'
+        ) {
+            $routine = @($profile.warmupRoutine.steps | ForEach-Object { [string]$_.name })
+        }
         $profiles.Add([pscustomobject]@{
             Id = [string]$profile.id
             DisplayName = [string]$profile.displayName
@@ -109,9 +122,10 @@ function Get-SonarState {
         $sonarDevice = $null
     }
 
+    $deviceName = if ($sonarDevice) { [string]$sonarDevice.Name } else { '' }
     [pscustomobject]@{
         Available = [bool]($runningProcess -or $sonarDevice)
-        Detail = "Process=$runningProcess; VirtualDevice=$($sonarDevice.Name)"
+        Detail = "Process=$runningProcess; VirtualDevice=$deviceName"
     }
 }
 
