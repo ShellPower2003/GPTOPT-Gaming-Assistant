@@ -14,6 +14,7 @@ $GuidedControlPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTGuidedControlCent
 $AdvancedControlPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTControlCenter.ps1'
 $BootstrapPath = Join-Path $RepoRoot 'gptopt.ps1'
 $SafetyPath = Join-Path $RepoRoot 'Scripts\Test-GPTOPTSafety.ps1'
+$GuidancePath = Join-Path $RepoRoot 'Knowledge\gptopt-guidance-library.json'
 
 function Assert($Condition, $Message){
     if(-not $Condition){ throw $Message }
@@ -27,7 +28,7 @@ function Assert-Parses($Path){
 Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.ps1' |
     ForEach-Object { Assert-Parses $_.FullName }
 
-foreach($path in @($RunGptOptPath,$GuidedControlPath,$AdvancedControlPath,$BootstrapPath,$SafetyPath)){
+foreach($path in @($RunGptOptPath,$GuidedControlPath,$AdvancedControlPath,$BootstrapPath,$SafetyPath,$GuidancePath)){
     Assert (Test-Path -LiteralPath $path) "$path missing."
     Assert-Parses $path
 }
@@ -96,6 +97,7 @@ Assert ($guidedText -match 'Session Focus' -and $guidedText -match 'Get-CurrentR
 Assert ($guidedText -match 'Session Review' -and $guidedText -match 'Save-SessionReview' -and $guidedText -match 'Get-RecentSessionReviews') 'Guided Control Center must persist and display post-session reviews.'
 Assert ($guidedText -match 'LocalApplicationData' -and $guidedText -match 'session_\{0\}\.json' -and $guidedText -match 'RoutineCompleted') 'Session reviews must use local app data and capture routine completion.'
 Assert ($guidedText -match 'Input Feel' -and $guidedText -match 'Audio Confidence' -and $guidedText -match 'Warmup Outcome') 'Session review must capture player-performance signals.'
+Assert ($guidedText -match 'Why This Matters' -and $guidedText -match 'Get-GuidanceEntries' -and $guidedText -match 'Refresh-Guidance') 'Guided Control Center must expose provenance-backed guidance.'
 Assert ($guidedText -match 'ApplicationDetectionLevel\\s\*=\\s\*2' -and $guidedText -match 'Get-SonarState') 'Guided readiness must require RTSS detection level 2 and use Sonar device fallback.'
 Assert ($guidedText -match 'Classification=Cleanup' -and $guidedText -match 'Classification=Servicing') 'Guided readiness must distinguish cleanup-only and servicing reboot states.'
 Assert ($guidedText -notmatch '(?i)Set-ItemProperty|New-ItemProperty|Remove-ItemProperty|reg\.exe\s+add|reg\.exe\s+delete|Restart-Computer|shutdown\.exe') 'Guided Control Center must not apply risky settings.'
@@ -108,6 +110,11 @@ $safetyText = Get-Content -Raw -LiteralPath $SafetyPath
 Assert ($safetyText -match 'root\\Microsoft\\Windows\\DeviceGuard') 'Safety scan must query Win32_DeviceGuard from the DeviceGuard namespace.'
 Assert ($safetyText -match 'CBS PackagesPending' -and $safetyText -match 'Classification = ''Cleanup''' -and $safetyText -match 'Classification = ''Servicing''') 'Safety scan must split servicing and cleanup-only reboot states.'
 Assert ($safetyText -match '\$null -eq \$renameValue' -and $safetyText -match '\{ @\(\) \} else \{ @\(\$renameValue\) \}') 'Safety scan must treat an absent pending rename marker as zero entries.'
+
+$guidance = Get-Content -Raw -LiteralPath $GuidancePath | ConvertFrom-Json
+Assert ($guidance.version -eq 1 -and @($guidance.entries).Count -ge 5) 'Guidance library must contain versioned evidence entries.'
+Assert (@($guidance.entries | Where-Object { -not $_.evidenceType -or -not $_.sourcePath -or -not $_.verifiedOn }).Count -eq 0) 'Every guidance entry must identify evidence type, source path, and checked date.'
+Assert (@($guidance.entries | Where-Object { $_.id -eq 'halo.rtss.240' -and $_.appliesTo -contains 'halo.infinite' }).Count -eq 1) 'Halo RTSS guidance must remain profile-scoped.'
 
 $guiText = Get-Content -Raw -LiteralPath (Join-Path $Root 'scripts\HaloSightGUI.ps1')
 Assert ($guiText -match 'function Get-HaloSightDashboardState') 'Dashboard state function missing.'
