@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "updatedOn": "2026-06-20",
+  "safety": {
+    "summary": "Session Setup starts existing installed applications only after explicit confirmation.",
+    "guarantees": [
+      "Does not edit registry or game files.",
+      "Does not stop processes.",
+      "Does not launch the game.",
+      "Does not install software.",
+      "Does not change or replace GPTOPT Timer Holder."
+    ]
+  },
+  "apps": [
+    {
+      "id": "rtss",
+      "displayName": "RivaTuner Statistics Server",
+      "processNames": [
+        "RTSS"
+      ],
+      "executableNames": [
+        "RTSS.exe"
+      ],
+      "pathHints": [
+        "%ProgramFiles(x86)%\\RivaTuner Statistics Server\\RTSS.exe",
+        "%ProgramFiles%\\RivaTuner Statistics Server\\RTSS.exe"
+      ],
+      "launchPolicy": "startIfFound",
+      "why": "Provides the selected profile's frame limiter.",
+      "risk": "Low. Starts the existing RTSS application.",
+      "undo": "Exit RTSS from its tray icon."
+    },
+    {
+      "id": "steelseries.sonar",
+      "displayName": "SteelSeries GG / Sonar",
+      "processNames": [
+        "SteelSeriesGG",
+        "SteelSeriesSonar",
+        "SteelSeriesEngine"
+      ],
+      "executableNames": [
+        "SteelSeriesGG.exe"
+      ],
+      "pathHints": [
+        "%ProgramFiles%\\SteelSeries\\GG\\SteelSeriesGG.exe"
+      ],
+      "launchPolicy": "startIfFound",
+      "why": "Makes the selected audio routing stack available.",
+      "risk": "Low. Starts the existing vendor application.",
+      "undo": "Exit SteelSeries GG or change routing inside the app."
+    },
+    {
+      "id": "flydigi.spacestation",
+      "displayName": "Flydigi SpaceStation",
+      "processNames": [
+        "FlydigiSpaceStation",
+        "FlydigiPcSpace",
+        "FlydigiPcSpaceStation"
+      ],
+      "executableNames": [
+        "FlydigiPcSpace.exe",
+        "FlydigiSpaceStation.exe"
+      ],
+      "pathHints": [
+        "%ProgramFiles%\\Flydigi\\Flydigi Space Station\\FlydigiPcSpace.exe",
+        "%ProgramFiles(x86)%\\Flydigi\\Flydigi Space Station\\FlydigiPcSpace.exe",
+        "%LOCALAPPDATA%\\Flydigi\\Flydigi Space Station\\FlydigiPcSpace.exe"
+      ],
+      "launchPolicy": "startIfFound",
+      "why": "Keeps the intended controller vendor stack available.",
+      "risk": "Low. Starts the existing vendor application.",
+      "undo": "Exit Flydigi SpaceStation."
+    },
+    {
+      "id": "gptopt.timer-holder",
+      "displayName": "GPTOPT Timer Holder",
+      "processNames": [
+        "GPTOPTTimerHolder",
+        "SetTimerResolution",
+        "TimerResolution"
+      ],
+      "executableNames": [],
+      "pathHints": [],
+      "launchPolicy": "manual",
+      "why": "Holds the user's existing low-latency timer request when installed.",
+      "risk": "Low, but this workflow does not replace or reconfigure the existing holder.",
+      "undo": "Use the existing Timer Holder stop/disable path."
+    }
+  ],
+  "profiles": [
+    {
+      "profileId": "halo.infinite",
+      "required": [
+        "rtss"
+      ],
+      "recommended": [
+        "steelseries.sonar",
+        "flydigi.spacestation",
+        "gptopt.timer-holder"
+      ]
+    },
+    {
+      "profileId": "generic.shooter",
+      "required": [],
+      "recommended": [
+        "rtss",
+        "steelseries.sonar",
+        "flydigi.spacestation",
+        "gptopt.timer-holder"
+      ]
+    }
+  ]
+}
