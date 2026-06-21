@@ -91,7 +91,8 @@ function Get-PendingRebootState {
             if (Test-Path -LiteralPath $entry.Value) { $entry.Key }
         }
     )
-    $renameEntries = @(Get-RegistryValue -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name 'PendingFileRenameOperations')
+    $renameValue = Get-RegistryValue -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name 'PendingFileRenameOperations'
+    $renameEntries = if ($null -eq $renameValue) { @() } else { @($renameValue) }
 
     if ($servicingReasons.Count -gt 0) {
         return [pscustomobject]@{
