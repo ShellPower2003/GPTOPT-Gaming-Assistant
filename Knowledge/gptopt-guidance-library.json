@@ -76,6 +76,21 @@
       "sourcePath": "Scripts/GPTOPT.SessionInsights.ps1",
       "verifiedOn": "2026-06-20",
       "caveat": "Recommendations are observational, require repeated samples before flagging patterns, and never change settings automatically."
+    },
+    {
+      "id": "session.prepare.apps",
+      "title": "Prepare only the installed session stack",
+      "summary": "Session Setup resolves the selected profile's existing apps and starts only missing applications after a Yes/No confirmation.",
+      "whyItMatters": "A repeatable limiter, audio, and controller stack removes setup drift without applying system tweaks or launching the game.",
+      "evidenceType": "Product safety contract",
+      "confidence": "High",
+      "appliesTo": [
+        "all"
+      ],
+      "sourceLabel": "Session app catalog and planner",
+      "sourcePath": "Scripts/GPTOPT.SessionStack.ps1",
+      "verifiedOn": "2026-06-20",
+      "caveat": "Missing apps are skipped, GPTOPT Timer Holder remains on its existing manual path, and no settings or files are changed."
     }
   ]
 }
