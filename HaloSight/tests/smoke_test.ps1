@@ -16,6 +16,8 @@ $BootstrapPath = Join-Path $RepoRoot 'gptopt.ps1'
 $SafetyPath = Join-Path $RepoRoot 'Scripts\Test-GPTOPTSafety.ps1'
 $GuidancePath = Join-Path $RepoRoot 'Knowledge\gptopt-guidance-library.json'
 $SessionInsightsPath = Join-Path $RepoRoot 'Scripts\GPTOPT.SessionInsights.ps1'
+$SessionStackPath = Join-Path $RepoRoot 'Scripts\GPTOPT.SessionStack.ps1'
+$SessionAppCatalogPath = Join-Path $RepoRoot 'Knowledge\session-app-catalog.json'
 
 function Assert($Condition, $Message){
     if(-not $Condition){ throw $Message }
@@ -30,8 +32,9 @@ Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.ps1' |
     ForEach-Object { Assert-Parses $_.FullName }
 
 Assert (Test-Path -LiteralPath $GuidancePath) "$GuidancePath missing."
+Assert (Test-Path -LiteralPath $SessionAppCatalogPath) "$SessionAppCatalogPath missing."
 
-foreach($path in @($RunGptOptPath,$GuidedControlPath,$AdvancedControlPath,$BootstrapPath,$SafetyPath,$SessionInsightsPath)){
+foreach($path in @($RunGptOptPath,$GuidedControlPath,$AdvancedControlPath,$BootstrapPath,$SafetyPath,$SessionInsightsPath,$SessionStackPath)){
     Assert (Test-Path -LiteralPath $path) "$path missing."
     Assert-Parses $path
 }
@@ -103,6 +106,9 @@ Assert ($guidedText -match 'Input Feel' -and $guidedText -match 'Audio Confidenc
 Assert ($guidedText -match 'Why This Matters' -and $guidedText -match 'Get-GuidanceEntries' -and $guidedText -match 'Refresh-Guidance') 'Guided Control Center must expose provenance-backed guidance.'
 Assert ($guidedText -match 'Your Session Patterns' -and $guidedText -match 'Refresh-Insights' -and $guidedText -match 'LastInsights') 'Guided Control Center must turn session history into recommendations.'
 Assert ($guidedText -match '## Session Insights' -and $guidedText -match 'Next Session Recommendations') 'Guided reports must include session insights.'
+Assert ($guidedText -match 'Session Setup' -and $guidedText -match 'Prepare Session' -and $guidedText -match 'Refresh-SessionStack') 'Guided Control Center must expose session preparation.'
+Assert ($guidedText -match 'MessageBoxButton]::YesNo' -and $guidedText -match 'will not install software' -and $guidedText -match 'replace Timer Holder') 'Prepare Session must require explicit confirmation and preserve safety guarantees.'
+Assert ($guidedText -match '## Session Setup' -and $guidedText -match 'LastSessionStack') 'Guided reports must include session stack state.'
 Assert ($guidedText -match 'ApplicationDetectionLevel\\s\*=\\s\*2' -and $guidedText -match 'Get-SonarState') 'Guided readiness must require RTSS detection level 2 and use Sonar device fallback.'
 Assert ($guidedText -match 'Classification=Cleanup' -and $guidedText -match 'Classification=Servicing') 'Guided readiness must distinguish cleanup-only and servicing reboot states.'
 Assert ($guidedText -notmatch '(?i)Set-ItemProperty|New-ItemProperty|Remove-ItemProperty|reg\.exe\s+add|reg\.exe\s+delete|Restart-Computer|shutdown\.exe') 'Guided Control Center must not apply risky settings.'
@@ -115,6 +121,21 @@ $safetyText = Get-Content -Raw -LiteralPath $SafetyPath
 Assert ($safetyText -match 'root\\Microsoft\\Windows\\DeviceGuard') 'Safety scan must query Win32_DeviceGuard from the DeviceGuard namespace.'
 Assert ($safetyText -match 'CBS PackagesPending' -and $safetyText -match 'Classification = ''Cleanup''' -and $safetyText -match 'Classification = ''Servicing''') 'Safety scan must split servicing and cleanup-only reboot states.'
 Assert ($safetyText -match '\$null -eq \$renameValue' -and $safetyText -match '\{ @\(\) \} else \{ @\(\$renameValue\) \}') 'Safety scan must treat an absent pending rename marker as zero entries.'
+
+. $SessionStackPath
+$sessionCatalog = Get-Content -Raw -LiteralPath $SessionAppCatalogPath | ConvertFrom-Json
+$fakeProcessProbe = { param([string[]]$Names) return $false }
+$fakePathProbe = { param($Path) return $true }
+$fakeCommandProbe = { param($Name) return $null }
+$stackPlan = @(Get-GPTOPTSessionStackPlan -Catalog $sessionCatalog -ProfileId 'halo.infinite' -ProcessProbe $fakeProcessProbe -PathProbe $fakePathProbe -CommandProbe $fakeCommandProbe)
+Assert (@($stackPlan | Where-Object { $_.Id -eq 'rtss' -and $_.Role -eq 'Required' -and $_.Status -eq 'ReadyToStart' }).Count -eq 1) 'Halo session setup must require a resolvable RTSS app.'
+Assert (@($stackPlan | Where-Object { $_.Id -eq 'gptopt.timer-holder' -and $_.Status -eq 'Manual' }).Count -eq 1) 'Session setup must preserve Timer Holder as a manual dependency when no repo launcher exists.'
+$script:sessionAppsLaunched = @()
+$fakeLauncher = { param($Path) $script:sessionAppsLaunched += $Path }
+$stackResults = @(Invoke-GPTOPTSessionStackPlan -Plan $stackPlan -Launcher $fakeLauncher -Confirm:$false)
+Assert (@($stackResults | Where-Object Outcome -eq 'Started').Count -eq 3) 'Session setup must start only resolved startable applications.'
+Assert ($script:sessionAppsLaunched.Count -eq 3) 'Session setup launcher invocation count is incorrect.'
+Assert (@($stackResults | Where-Object { $_.Id -eq 'gptopt.timer-holder' -and $_.Outcome -eq 'Skipped' }).Count -eq 1) 'Session setup must not replace or start Timer Holder implicitly.'
 
 . $SessionInsightsPath
 $insightReviews = @(
