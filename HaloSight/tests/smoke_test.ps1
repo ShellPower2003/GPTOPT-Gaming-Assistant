@@ -106,6 +106,7 @@ Assert ($bootstrapText -match 'GPTOPT-LaunchFallback\.ps1') 'Bootstrap must use 
 $safetyText = Get-Content -Raw -LiteralPath $SafetyPath
 Assert ($safetyText -match 'root\\Microsoft\\Windows\\DeviceGuard') 'Safety scan must query Win32_DeviceGuard from the DeviceGuard namespace.'
 Assert ($safetyText -match 'CBS PackagesPending' -and $safetyText -match 'Classification = ''Cleanup''' -and $safetyText -match 'Classification = ''Servicing''') 'Safety scan must split servicing and cleanup-only reboot states.'
+Assert ($safetyText -match '\$null -eq \$renameValue' -and $safetyText -match '\{ @\(\) \} else \{ @\(\$renameValue\) \}') 'Safety scan must treat an absent pending rename marker as zero entries.'
 
 $guiText = Get-Content -Raw -LiteralPath (Join-Path $Root 'scripts\HaloSightGUI.ps1')
 Assert ($guiText -match 'function Get-HaloSightDashboardState') 'Dashboard state function missing.'
