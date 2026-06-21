@@ -110,7 +110,7 @@ function Get-PendingRebootState {
             Status = 'App or driver cleanup file is waiting for reboot. This is usually not a Windows servicing problem.'
             Recommendation = 'Reboot later if this persists, or after installing drivers/updates.'
             Evidence = "Classification=Cleanup; PendingFileRenameCount=$($renameEntries.Count); Entries=$($renameEntries -join ' | ')"
-            RequiresReboot = $RequiresReboot
+            RequiresReboot = $false
             Level = 'Info'
         }
     }
@@ -145,7 +145,7 @@ function New-Check {
         Recommendation = $Recommendation
         Evidence = $Evidence
         RollbackAvailable = 'Not required for read-only scan'
-        RequiresReboot = $false
+        RequiresReboot = $RequiresReboot
     }
 }
 
