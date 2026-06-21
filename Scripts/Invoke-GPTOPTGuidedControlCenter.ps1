@@ -11,6 +11,7 @@ $ReportsDir = Join-Path $Root 'Reports'
 $UserDataDir = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'GPTOPT\Sessions'
 $HealthModelPath = Join-Path $KnowledgeDir 'gptopt-health-model.json'
 $ProfileSchemaPath = Join-Path $KnowledgeDir 'game-profile-schema.json'
+$GuidanceLibraryPath = Join-Path $KnowledgeDir 'gptopt-guidance-library.json'
 $SafetyScanner = Join-Path $PSScriptRoot 'Test-GPTOPTSafety.ps1'
 $AdvancedControlCenter = Join-Path $PSScriptRoot 'Invoke-GPTOPTControlCenter.ps1'
 $LegacyControlCenter = Join-Path $PSScriptRoot 'Invoke-GPTOPTAppGUI.ps1'
@@ -32,6 +33,16 @@ function Read-JsonFile {
     }
 
     return $Fallback
+}
+
+function Get-GuidanceEntries {
+    param([string]$ProfileId)
+
+    $library = Read-JsonFile -Path $GuidanceLibraryPath -Fallback ([pscustomobject]@{ entries = @() })
+    @($library.entries | Where-Object {
+        $appliesTo = @($_.appliesTo)
+        $appliesTo -contains 'all' -or $appliesTo -contains $ProfileId
+    })
 }
 
 function Get-GuidedProfiles {
@@ -524,6 +535,16 @@ $xaml = @'
           </StackPanel>
         </Grid>
       </TabItem>
+      <TabItem Header="Why This Matters">
+        <Grid Margin="14">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <StackPanel>
+            <TextBlock Text="Evidence Behind the Guidance" FontSize="22" FontWeight="Bold" Foreground="#F4F4F4"/>
+            <TextBlock Text="GPTOPT separates tested baselines, safety contracts, and product learning rules. Technical evidence stays available without becoming the main workflow." TextWrapping="Wrap" Foreground="#B8C0C8" Margin="0,4,0,14"/>
+          </StackPanel>
+          <TextBox Grid.Row="1" Name="GuidanceBox" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas"/>
+        </Grid>
+      </TabItem>
     </TabControl>
     <DockPanel Grid.Row="3" Margin="0,12,0,0">
       <TextBlock DockPanel.Dock="Top" Text="Details" FontWeight="Bold" Foreground="#F4F4F4"/>
@@ -553,6 +574,7 @@ $AudioConfidenceBox = $Window.FindName('AudioConfidenceBox')
 $WarmupOutcomeBox = $Window.FindName('WarmupOutcomeBox')
 $ReviewNotesBox = $Window.FindName('ReviewNotesBox')
 $RecentReviewsBox = $Window.FindName('RecentReviewsBox')
+$GuidanceBox = $Window.FindName('GuidanceBox')
 
 $Profiles = @(Get-GuidedProfiles)
 foreach ($profile in $Profiles) {
@@ -635,6 +657,20 @@ function Update-RecentReviews {
         "$label - $($review.ProfileName)`r`n  Rating: $($review.Rating)`r`n  Input: $($review.InputFeel) | Audio: $($review.AudioConfidence)`r`n  Warmup: $($review.WarmupOutcome) | Routine: $($review.RoutineCompleted)/$($review.RoutineTotal)`r`n  Focus: $($review.SessionFocus)`r`n"
     }
     Set-TextBoxLines -TextBox $RecentReviewsBox -Lines $lines
+}
+
+function Refresh-Guidance {
+    $profile = Get-SelectedProfile
+    $entries = @(Get-GuidanceEntries -ProfileId $profile.Id)
+    if ($entries.Count -eq 0) {
+        $GuidanceBox.Text = 'No guidance evidence is registered for this profile yet.'
+        return
+    }
+
+    $lines = foreach ($entry in $entries) {
+        "$($entry.title)`r`n  What GPTOPT says: $($entry.summary)`r`n  Why it matters: $($entry.whyItMatters)`r`n  Evidence: $($entry.evidenceType) | Confidence: $($entry.confidence)`r`n  Source: $($entry.sourceLabel) [$($entry.sourcePath)]`r`n  Checked: $($entry.verifiedOn)`r`n  Limits: $($entry.caveat)`r`n"
+    }
+    Set-TextBoxLines -TextBox $GuidanceBox -Lines $lines
 }
 
 function Refresh-GuidedView {
@@ -721,6 +757,7 @@ $ProfileBox.Add_SelectionChanged({
     if ($ProfileBox.SelectedIndex -ge 0) {
         Initialize-Routine
         Initialize-SessionReview
+        Refresh-Guidance
         Refresh-GuidedView
     }
 })
@@ -732,5 +769,6 @@ $WarmupOutcomeBox.SelectedIndex = 0
 Initialize-Routine
 Initialize-SessionReview
 Update-RecentReviews
+Refresh-Guidance
 Refresh-GuidedView
 $Window.ShowDialog() | Out-Null
