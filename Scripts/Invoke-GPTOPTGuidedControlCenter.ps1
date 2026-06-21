@@ -8,13 +8,14 @@ Add-Type -AssemblyName PresentationFramework
 $Root = Split-Path -Parent $PSScriptRoot
 $KnowledgeDir = Join-Path $Root 'Knowledge'
 $ReportsDir = Join-Path $Root 'Reports'
+$UserDataDir = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'GPTOPT\Sessions'
 $HealthModelPath = Join-Path $KnowledgeDir 'gptopt-health-model.json'
 $ProfileSchemaPath = Join-Path $KnowledgeDir 'game-profile-schema.json'
 $SafetyScanner = Join-Path $PSScriptRoot 'Test-GPTOPTSafety.ps1'
 $AdvancedControlCenter = Join-Path $PSScriptRoot 'Invoke-GPTOPTControlCenter.ps1'
 $LegacyControlCenter = Join-Path $PSScriptRoot 'Invoke-GPTOPTAppGUI.ps1'
 
-New-Item -ItemType Directory -Force -Path $ReportsDir | Out-Null
+New-Item -ItemType Directory -Force -Path $ReportsDir,$UserDataDir | Out-Null
 
 function Read-JsonFile {
     param(
@@ -48,12 +49,21 @@ function Get-GuidedProfiles {
         ) {
             $routine = @($profile.playerLayer.warmup.defaultRoutine)
         }
+        $reviewQuestions = @()
+        if (
+            $profile.PSObject.Properties.Name -contains 'playerLayer' -and
+            $profile.playerLayer.PSObject.Properties.Name -contains 'warmup' -and
+            $profile.playerLayer.warmup.PSObject.Properties.Name -contains 'learnFrom'
+        ) {
+            $reviewQuestions = @($profile.playerLayer.warmup.learnFrom)
+        }
         $profiles.Add([pscustomobject]@{
             Id = [string]$profile.id
             DisplayName = [string]$profile.name
             Status = [string]$profile.status
             Role = [string]$profile.role
             WarmupRoutine = $routine
+            ReviewQuestions = $reviewQuestions
         })
     }
 
@@ -67,12 +77,17 @@ function Get-GuidedProfiles {
         ) {
             $routine = @($profile.warmupRoutine.steps | ForEach-Object { [string]$_.name })
         }
+        $reviewQuestions = @()
+        if ($profile.PSObject.Properties.Name -contains 'reviewQuestions') {
+            $reviewQuestions = @($profile.reviewQuestions)
+        }
         $profiles.Add([pscustomobject]@{
             Id = [string]$profile.id
             DisplayName = [string]$profile.displayName
             Status = [string]$profile.status
             Role = [string]$profile.role
             WarmupRoutine = $routine
+            ReviewQuestions = $reviewQuestions
         })
     }
 
@@ -83,6 +98,7 @@ function Get-GuidedProfiles {
             Status = 'experimental'
             Role = 'fallback profile'
             WarmupRoutine = @('Confirm input device', 'Confirm audio route', 'Run movement warmup', 'Run aim warmup', 'Play one low-stress match')
+            ReviewQuestions = @('Did input feel consistent?', 'Was audio routing correct?', 'Did the warmup prepare you?', 'What should change next session?')
         })
     }
 
@@ -360,6 +376,60 @@ function Set-TextBoxLines {
     $TextBox.Text = ($Lines -join "`r`n")
 }
 
+function Get-ComboBoxValue {
+    param([object]$ComboBox)
+
+    if ($ComboBox.SelectedItem) {
+        return [string]$ComboBox.SelectedItem.Content
+    }
+    return ''
+}
+
+function Save-SessionReview {
+    param(
+        [object]$Profile,
+        [string]$Rating,
+        [string]$InputFeel,
+        [string]$AudioConfidence,
+        [string]$WarmupOutcome,
+        [string]$Notes
+    )
+
+    $routine = @(Get-CurrentRoutineState)
+    $review = [pscustomobject]@{
+        Version = 1
+        RecordedAt = (Get-Date).ToString('o')
+        ProfileId = [string]$Profile.Id
+        ProfileName = [string]$Profile.DisplayName
+        ReadinessVerdict = $script:LastVerdict
+        SessionFocus = $SessionFocusBox.Text.Trim()
+        RoutineCompleted = @($routine | Where-Object { $_.Complete }).Count
+        RoutineTotal = $routine.Count
+        Rating = $Rating
+        InputFeel = $InputFeel
+        AudioConfidence = $AudioConfidence
+        WarmupOutcome = $WarmupOutcome
+        Notes = $Notes.Trim()
+    }
+
+    $path = Join-Path $UserDataDir ("session_{0}.json" -f (Get-Date -Format 'yyyyMMdd_HHmmss_fff'))
+    $review | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $path -Encoding UTF8
+    return $path
+}
+
+function Get-RecentSessionReviews {
+    $files = @(Get-ChildItem -LiteralPath $UserDataDir -File -Filter 'session_*.json' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 5)
+    foreach ($file in $files) {
+        try {
+            Get-Content -Raw -LiteralPath $file.FullName | ConvertFrom-Json
+        } catch {
+            continue
+        }
+    }
+}
+
 $xaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Title="GPTOPT Guided Control Center" Height="760" Width="1040" WindowStartupLocation="CenterScreen" Background="#101214">
   <Grid Margin="14">
@@ -432,6 +502,28 @@ $xaml = @'
           </StackPanel>
         </Grid>
       </TabItem>
+      <TabItem Header="Session Review">
+        <Grid Margin="14">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" Margin="0,0,16,0">
+            <TextBlock Text="Post-Session Review" FontSize="22" FontWeight="Bold" Foreground="#F4F4F4"/>
+            <TextBlock Name="ReviewPromptText" TextWrapping="Wrap" Foreground="#B8C0C8" Margin="0,4,0,14"/>
+            <UniformGrid Columns="2" Margin="0,0,0,10">
+              <StackPanel Margin="0,0,8,8"><TextBlock Text="Session Rating" Foreground="#F4F4F4"/><ComboBox Name="RatingBox" Margin="0,4,0,0"><ComboBoxItem Content="5 - Excellent"/><ComboBoxItem Content="4 - Strong"/><ComboBoxItem Content="3 - Mixed"/><ComboBoxItem Content="2 - Off"/><ComboBoxItem Content="1 - Poor"/></ComboBox></StackPanel>
+              <StackPanel Margin="8,0,0,8"><TextBlock Text="Input Feel" Foreground="#F4F4F4"/><ComboBox Name="InputFeelBox" Margin="0,4,0,0"><ComboBoxItem Content="Consistent"/><ComboBoxItem Content="Over-aiming"/><ComboBoxItem Content="Under-aiming"/><ComboBoxItem Content="Delayed"/><ComboBoxItem Content="Unclear"/></ComboBox></StackPanel>
+              <StackPanel Margin="0,0,8,8"><TextBlock Text="Audio Confidence" Foreground="#F4F4F4"/><ComboBox Name="AudioConfidenceBox" Margin="0,4,0,0"><ComboBoxItem Content="Clear"/><ComboBoxItem Content="Mostly clear"/><ComboBoxItem Content="Wrong route"/><ComboBoxItem Content="Hard to locate"/><ComboBoxItem Content="Not assessed"/></ComboBox></StackPanel>
+              <StackPanel Margin="8,0,0,8"><TextBlock Text="Warmup Outcome" Foreground="#F4F4F4"/><ComboBox Name="WarmupOutcomeBox" Margin="0,4,0,0"><ComboBoxItem Content="Ready"/><ComboBoxItem Content="Needed more"/><ComboBoxItem Content="Skipped"/><ComboBoxItem Content="Made no difference"/></ComboBox></StackPanel>
+            </UniformGrid>
+            <TextBlock Text="What happened and what should change next session?" Foreground="#F4F4F4"/>
+            <TextBox Name="ReviewNotesBox" Height="100" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" Margin="0,6,0,10"/>
+            <Button Name="SaveReviewBtn" Content="Save Session Review" Width="170" Height="36" HorizontalAlignment="Left"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Text="Recent Sessions" FontSize="18" FontWeight="Bold" Foreground="#F4F4F4"/>
+            <TextBox Name="RecentReviewsBox" Height="390" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Grid>
+      </TabItem>
     </TabControl>
     <DockPanel Grid.Row="3" Margin="0,12,0,0">
       <TextBlock DockPanel.Dock="Top" Text="Details" FontWeight="Bold" Foreground="#F4F4F4"/>
@@ -454,6 +546,13 @@ $DetailsToggle = $Window.FindName('DetailsToggle')
 $RoutineStepsPanel = $Window.FindName('RoutineStepsPanel')
 $RoutineProgressText = $Window.FindName('RoutineProgressText')
 $SessionFocusBox = $Window.FindName('SessionFocusBox')
+$ReviewPromptText = $Window.FindName('ReviewPromptText')
+$RatingBox = $Window.FindName('RatingBox')
+$InputFeelBox = $Window.FindName('InputFeelBox')
+$AudioConfidenceBox = $Window.FindName('AudioConfidenceBox')
+$WarmupOutcomeBox = $Window.FindName('WarmupOutcomeBox')
+$ReviewNotesBox = $Window.FindName('ReviewNotesBox')
+$RecentReviewsBox = $Window.FindName('RecentReviewsBox')
 
 $Profiles = @(Get-GuidedProfiles)
 foreach ($profile in $Profiles) {
@@ -512,6 +611,30 @@ function Initialize-Routine {
         [void]$RoutineStepsPanel.Children.Add($checkBox)
     }
     Update-RoutineProgress
+}
+
+function Initialize-SessionReview {
+    $profile = Get-SelectedProfile
+    $questions = @($profile.ReviewQuestions | Where-Object { $_ })
+    if ($questions.Count -eq 0) {
+        $questions = @('Did input feel consistent?', 'Was audio routing correct?', 'Did the warmup prepare you?', 'What should change next session?')
+    }
+    $ReviewPromptText.Text = ($questions | ForEach-Object { "• $_" }) -join "`r`n"
+}
+
+function Update-RecentReviews {
+    $reviews = @(Get-RecentSessionReviews)
+    if ($reviews.Count -eq 0) {
+        $RecentReviewsBox.Text = 'No saved sessions yet.'
+        return
+    }
+
+    $lines = foreach ($review in $reviews) {
+        $date = try { [datetime]$review.RecordedAt } catch { $null }
+        $label = if ($date) { $date.ToString('MMM d, h:mm tt') } else { [string]$review.RecordedAt }
+        "$label - $($review.ProfileName)`r`n  Rating: $($review.Rating)`r`n  Input: $($review.InputFeel) | Audio: $($review.AudioConfidence)`r`n  Warmup: $($review.WarmupOutcome) | Routine: $($review.RoutineCompleted)/$($review.RoutineTotal)`r`n  Focus: $($review.SessionFocus)`r`n"
+    }
+    Set-TextBoxLines -TextBox $RecentReviewsBox -Lines $lines
 }
 
 function Refresh-GuidedView {
@@ -584,13 +707,30 @@ $Window.FindName('AdvancedBtn').Add_Click({
 $DetailsToggle.Add_Checked({ $DetailsBox.Visibility = 'Visible' })
 $DetailsToggle.Add_Unchecked({ $DetailsBox.Visibility = 'Collapsed' })
 $Window.FindName('ResetRoutineBtn').Add_Click({ Initialize-Routine; $SessionFocusBox.Clear() })
+$Window.FindName('SaveReviewBtn').Add_Click({
+    try {
+        $path = Save-SessionReview -Profile (Get-SelectedProfile) -Rating (Get-ComboBoxValue $RatingBox) -InputFeel (Get-ComboBoxValue $InputFeelBox) -AudioConfidence (Get-ComboBoxValue $AudioConfidenceBox) -WarmupOutcome (Get-ComboBoxValue $WarmupOutcomeBox) -Notes $ReviewNotesBox.Text
+        $ReviewNotesBox.Clear()
+        Update-RecentReviews
+        [System.Windows.MessageBox]::Show("Session review saved:`r`n$path", 'GPTOPT Guided Control Center') | Out-Null
+    } catch {
+        [System.Windows.MessageBox]::Show($_.Exception.Message, 'GPTOPT Guided Control Center') | Out-Null
+    }
+})
 $ProfileBox.Add_SelectionChanged({
     if ($ProfileBox.SelectedIndex -ge 0) {
         Initialize-Routine
+        Initialize-SessionReview
         Refresh-GuidedView
     }
 })
 
+$RatingBox.SelectedIndex = 2
+$InputFeelBox.SelectedIndex = 0
+$AudioConfidenceBox.SelectedIndex = 0
+$WarmupOutcomeBox.SelectedIndex = 0
 Initialize-Routine
+Initialize-SessionReview
+Update-RecentReviews
 Refresh-GuidedView
 $Window.ShowDialog() | Out-Null
