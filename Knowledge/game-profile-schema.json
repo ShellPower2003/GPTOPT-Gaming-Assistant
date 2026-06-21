@@ -105,7 +105,13 @@
           { "name": "Run aim warmup", "goal": "Settle tracking and precision before ranked play.", "stopCondition": "Aim feels controlled instead of forced." },
           { "name": "Play one low-stress match", "goal": "Validate the full setup under normal gameplay.", "stopCondition": "No setup issue distracts from play." }
         ]
-      }
+      },
+      "reviewQuestions": [
+        "Did input feel consistent?",
+        "Was audio routing correct?",
+        "Did the warmup prepare you?",
+        "What should change next session?"
+      ]
     }
   ]
 }
