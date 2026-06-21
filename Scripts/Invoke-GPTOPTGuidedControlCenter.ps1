@@ -567,11 +567,11 @@ $xaml = @'
             <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Margin="0,0,14,0">
               <TextBlock Text="What the history shows" FontSize="17" FontWeight="Bold" Foreground="#F4F4F4"/>
-              <TextBox Name="InsightSummaryBox" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas" Margin="0,8,0,0"/>
+              <TextBox Name="InsightSummaryBox" Height="360" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas" Margin="0,8,0,0"/>
             </StackPanel>
             <StackPanel Grid.Column="1">
               <TextBlock Text="Next session priorities" FontSize="17" FontWeight="Bold" Foreground="#F4F4F4"/>
-              <TextBox Name="InsightRecommendationsBox" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas" Margin="0,8,0,0"/>
+              <TextBox Name="InsightRecommendationsBox" Height="360" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas" Margin="0,8,0,0"/>
             </StackPanel>
           </Grid>
         </Grid>
