@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Run-GPTOPT.ps1" -Mode gui
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Run-GPTOPT.ps1" -Mode guided
 set "GPTOPT_EXIT=%ERRORLEVEL%"
 
 if not "%GPTOPT_EXIT%"=="0" (
