@@ -28,7 +28,9 @@ function Assert-Parses($Path){
 Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.ps1' |
     ForEach-Object { Assert-Parses $_.FullName }
 
-foreach($path in @($RunGptOptPath,$GuidedControlPath,$AdvancedControlPath,$BootstrapPath,$SafetyPath,$GuidancePath)){
+Assert (Test-Path -LiteralPath $GuidancePath) "$GuidancePath missing."
+
+foreach($path in @($RunGptOptPath,$GuidedControlPath,$AdvancedControlPath,$BootstrapPath,$SafetyPath)){
     Assert (Test-Path -LiteralPath $path) "$path missing."
     Assert-Parses $path
 }
