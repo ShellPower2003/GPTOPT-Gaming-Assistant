@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "updatedOn": "2026-06-20",
+  "entries": [
+    {
+      "id": "readiness.audit-only",
+      "title": "Audits stay read-only",
+      "summary": "Guided Mode reads system and app state, then explains readiness without changing Windows, game files, or tool settings.",
+      "whyItMatters": "A trustworthy pre-game check must not create a new variable while it is measuring the current setup.",
+      "evidenceType": "Safety contract",
+      "confidence": "High",
+      "appliesTo": [
+        "all"
+      ],
+      "sourceLabel": "HaloSight smoke safety assertions",
+      "sourcePath": "HaloSight/tests/smoke_test.ps1",
+      "verifiedOn": "2026-06-20",
+      "caveat": "An action marked Preview only is not an apply workflow."
+    },
+    {
+      "id": "halo.rtss.240",
+      "title": "Halo RTSS 240 baseline",
+      "summary": "The Halo profile is ready only when its RTSS profile uses FramerateLimit=240 and ApplicationDetectionLevel=2.",
+      "whyItMatters": "Using one explicit limiter profile prevents readiness from passing when RTSS is installed but not actively configured for Halo.",
+      "evidenceType": "GPTOPT tested baseline",
+      "confidence": "High",
+      "appliesTo": [
+        "halo.infinite"
+      ],
+      "sourceLabel": "GPTOPT health model and smoke contract",
+      "sourcePath": "Knowledge/gptopt-health-model.json",
+      "verifiedOn": "2026-06-20",
+      "caveat": "This is the current GPTOPT competitive baseline, not a universal best setting for every PC."
+    },
+    {
+      "id": "halo.config.backup",
+      "title": "Halo settings require backup-first changes",
+      "summary": "Any future Halo settings apply flow must back up SpecControlSettings.json before editing listed profile fields.",
+      "whyItMatters": "Game updates, hardware changes, and personal preferences can make a baseline unsuitable; the original file must remain recoverable.",
+      "evidenceType": "Profile safety contract",
+      "confidence": "High",
+      "appliesTo": [
+        "halo.infinite"
+      ],
+      "sourceLabel": "Game profile schema",
+      "sourcePath": "Knowledge/game-profile-schema.json",
+      "verifiedOn": "2026-06-20",
+      "caveat": "Guided Mode currently previews this action and does not edit the Halo JSON."
+    },
+    {
+      "id": "session.stack.consistency",
+      "title": "Use a consistent session app stack",
+      "summary": "Readiness checks treat RTSS, audio routing, and controller software as session dependencies without requiring every optional app.",
+      "whyItMatters": "Comparing game feel is more useful when the limiter, audio route, and input path are known and repeatable.",
+      "evidenceType": "GPTOPT workflow rule",
+      "confidence": "Medium",
+      "appliesTo": [
+        "all"
+      ],
+      "sourceLabel": "Guided Control Center action model",
+      "sourcePath": "Scripts/Invoke-GPTOPTGuidedControlCenter.ps1",
+      "verifiedOn": "2026-06-20",
+      "caveat": "Missing Sonar or Flydigi software is a review item, not an automatic play blocker."
+    },
+    {
+      "id": "session.review.loop",
+      "title": "Session reviews create player-specific evidence",
+      "summary": "GPTOPT stores rating, input feel, audio confidence, warmup outcome, routine completion, and notes in local app data.",
+      "whyItMatters": "Repeated observations can separate persistent setup problems from one bad match or a one-off feeling.",
+      "evidenceType": "Product learning model",
+      "confidence": "Medium",
+      "appliesTo": [
+        "all"
+      ],
+      "sourceLabel": "Local session review contract",
+      "sourcePath": "Scripts/Invoke-GPTOPTGuidedControlCenter.ps1",
+      "verifiedOn": "2026-06-20",
+      "caveat": "Current reviews are descriptive history; they do not yet calculate trends or automatically change settings."
+    }
+  ]
+}
