@@ -40,22 +40,26 @@ function Get-GuidedProfiles {
 
     foreach ($profile in @($health.gameProfiles)) {
         if ($null -eq $profile) { continue }
+        $routine = @($profile.playerLayer.warmup.defaultRoutine)
         $profiles.Add([pscustomobject]@{
             Id = [string]$profile.id
             DisplayName = [string]$profile.name
             Status = [string]$profile.status
             Role = [string]$profile.role
+            WarmupRoutine = $routine
         })
     }
 
     foreach ($profile in @($schema.defaultProfiles)) {
         if ($null -eq $profile) { continue }
         if (@($profiles | Where-Object { $_.Id -eq [string]$profile.id }).Count -gt 0) { continue }
+        $routine = @($profile.warmupRoutine.steps | ForEach-Object { [string]$_.name })
         $profiles.Add([pscustomobject]@{
             Id = [string]$profile.id
             DisplayName = [string]$profile.displayName
             Status = [string]$profile.status
             Role = [string]$profile.role
+            WarmupRoutine = $routine
         })
     }
 
@@ -65,6 +69,7 @@ function Get-GuidedProfiles {
             DisplayName = 'Generic Competitive Shooter'
             Status = 'experimental'
             Role = 'fallback profile'
+            WarmupRoutine = @('Confirm input device', 'Confirm audio route', 'Run movement warmup', 'Run aim warmup', 'Play one low-stress match')
         })
     }
 
@@ -258,7 +263,9 @@ function Write-GuidedReport {
         [object[]]$Cards,
         [object[]]$Queue,
         [string]$Verdict,
-        [string]$ProfileName
+        [string]$ProfileName,
+        [object[]]$RoutineSteps = @(),
+        [string]$SessionFocus = ''
     )
 
     $path = Join-Path $ReportsDir ("GPTOPT-GuidedReadiness_{0}.md" -f (Get-Date -Format 'yyyyMMdd_HHmmss'))
@@ -278,6 +285,16 @@ function Write-GuidedReport {
     $lines += '## Recommended Action Queue'
     foreach ($item in $Queue) {
         $lines += "- $($item.Action): changes=$($item.WhatItChanges); why=$($item.WhyItMatters); risk=$($item.Risk); undo=$($item.BackupUndoPath); reboot=$($item.RequiresReboot); status=$($item.Status)"
+    }
+    $lines += ''
+    $lines += '## Pre-Game Routine'
+    foreach ($step in $RoutineSteps) {
+        $mark = if ($step.Complete) { 'x' } else { ' ' }
+        $lines += "- [$mark] $($step.Name)"
+    }
+    if ($SessionFocus.Trim()) {
+        $lines += ''
+        $lines += "Session focus: $($SessionFocus.Trim())"
     }
     $lines | Set-Content -LiteralPath $path -Encoding UTF8
     return $path
@@ -317,12 +334,14 @@ $xaml = @'
       <Button Name="AuditBtn" Content="Run Audit" Width="120" Height="34" Margin="12,0,0,0"/>
       <CheckBox Name="DetailsToggle" Content="Show Details" Foreground="#F4F4F4" VerticalAlignment="Center" Margin="18,0,0,0"/>
     </StackPanel>
-    <Grid Grid.Row="2">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="2*"/>
-        <ColumnDefinition Width="*"/>
-      </Grid.ColumnDefinitions>
-      <StackPanel Grid.Column="0" Margin="0,0,12,0">
+    <TabControl Grid.Row="2" Name="MainTabs" Background="#101214" Foreground="#F4F4F4">
+      <TabItem Header="Readiness">
+       <Grid Margin="8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="2*"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Margin="0,0,12,0">
         <UniformGrid Columns="3" Margin="0,0,0,12">
           <Border Name="ReadyCard" BorderBrush="#2E7D32" BorderThickness="1" Background="#172019" Padding="12" Margin="0,0,8,0">
             <StackPanel><TextBlock Text="Ready to Play" FontWeight="Bold" Foreground="#DDF5DE"/><TextBlock Name="ReadyCount" Text="0" FontSize="28" Foreground="#DDF5DE"/></StackPanel>
@@ -336,12 +355,33 @@ $xaml = @'
         </UniformGrid>
         <TextBlock Name="VerdictText" Text="Run an audit to check readiness." FontSize="20" FontWeight="Bold" Foreground="#F4F4F4" Margin="0,0,0,8"/>
         <TextBox Name="CardsBox" Height="410" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas"/>
-      </StackPanel>
-      <StackPanel Grid.Column="1">
-        <TextBlock Text="Recommended Action Queue" FontSize="18" FontWeight="Bold" Foreground="#F4F4F4"/>
-        <TextBox Name="QueueBox" Height="500" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas" Margin="0,8,0,0"/>
-      </StackPanel>
-    </Grid>
+        </StackPanel>
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="Recommended Action Queue" FontSize="18" FontWeight="Bold" Foreground="#F4F4F4"/>
+          <TextBox Name="QueueBox" Height="500" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#ECEFF1" FontFamily="Consolas" Margin="0,8,0,0"/>
+        </StackPanel>
+       </Grid>
+      </TabItem>
+      <TabItem Header="Pre-Game Routine">
+        <Grid Margin="14">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <DockPanel Grid.Row="0" LastChildFill="True">
+            <Button Name="ResetRoutineBtn" DockPanel.Dock="Right" Content="Reset" Width="90" Height="32" Margin="8,0,0,0"/>
+            <StackPanel>
+              <TextBlock Text="Pre-Game Routine" FontSize="22" FontWeight="Bold" Foreground="#F4F4F4"/>
+              <TextBlock Name="RoutineProgressText" Text="0 of 0 complete" Foreground="#B8C0C8" Margin="0,4,0,0"/>
+            </StackPanel>
+          </DockPanel>
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,14,0,14">
+            <StackPanel Name="RoutineStepsPanel"/>
+          </ScrollViewer>
+          <StackPanel Grid.Row="2">
+            <TextBlock Text="Session Focus" FontWeight="Bold" Foreground="#F4F4F4"/>
+            <TextBox Name="SessionFocusBox" Height="56" TextWrapping="Wrap" AcceptsReturn="True" Background="#080A0C" Foreground="#ECEFF1" Margin="0,6,0,0" ToolTip="One specific thing to focus on this session."/>
+          </StackPanel>
+        </Grid>
+      </TabItem>
+    </TabControl>
     <DockPanel Grid.Row="3" Margin="0,12,0,0">
       <TextBlock DockPanel.Dock="Top" Text="Details" FontWeight="Bold" Foreground="#F4F4F4"/>
       <TextBox Name="DetailsBox" Visibility="Collapsed" IsReadOnly="True" TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#080A0C" Foreground="#C9D1D9" FontFamily="Consolas"/>
@@ -360,6 +400,9 @@ $CardsBox = $Window.FindName('CardsBox')
 $QueueBox = $Window.FindName('QueueBox')
 $DetailsBox = $Window.FindName('DetailsBox')
 $DetailsToggle = $Window.FindName('DetailsToggle')
+$RoutineStepsPanel = $Window.FindName('RoutineStepsPanel')
+$RoutineProgressText = $Window.FindName('RoutineProgressText')
+$SessionFocusBox = $Window.FindName('SessionFocusBox')
 
 $Profiles = @(Get-GuidedProfiles)
 foreach ($profile in $Profiles) {
@@ -376,6 +419,48 @@ function Get-SelectedProfile {
     $index = $ProfileBox.SelectedIndex
     if ($index -lt 0) { $index = 0 }
     $Profiles[$index]
+}
+
+function Get-CurrentRoutineState {
+    foreach ($checkBox in @($RoutineStepsPanel.Children)) {
+        [pscustomobject]@{
+            Name = [string]$checkBox.Content
+            Complete = [bool]$checkBox.IsChecked
+        }
+    }
+}
+
+function Update-RoutineProgress {
+    $steps = @(Get-CurrentRoutineState)
+    $complete = @($steps | Where-Object { $_.Complete }).Count
+    $RoutineProgressText.Text = "$complete of $($steps.Count) complete"
+    if ($steps.Count -gt 0 -and $complete -eq $steps.Count) {
+        $RoutineProgressText.Text += ' - ready to queue'
+        $RoutineProgressText.Foreground = '#9BE39F'
+    } else {
+        $RoutineProgressText.Foreground = '#B8C0C8'
+    }
+}
+
+function Initialize-Routine {
+    $RoutineStepsPanel.Children.Clear()
+    $profile = Get-SelectedProfile
+    $steps = @($profile.WarmupRoutine | Where-Object { $_ })
+    if ($steps.Count -eq 0) {
+        $steps = @('Confirm input device', 'Confirm audio route', 'Run movement warmup', 'Run aim warmup', 'Play one low-stress match')
+    }
+
+    foreach ($step in $steps) {
+        $checkBox = New-Object System.Windows.Controls.CheckBox
+        $checkBox.Content = [string]$step
+        $checkBox.Foreground = '#F4F4F4'
+        $checkBox.FontSize = 16
+        $checkBox.Margin = '0,0,0,12'
+        $checkBox.Add_Checked({ Update-RoutineProgress })
+        $checkBox.Add_Unchecked({ Update-RoutineProgress })
+        [void]$RoutineStepsPanel.Children.Add($checkBox)
+    }
+    Update-RoutineProgress
 }
 
 function Refresh-GuidedView {
@@ -429,7 +514,7 @@ $Window.FindName('AuditBtn').Add_Click({
 $Window.FindName('ReportBtn').Add_Click({
     try {
         if ($script:LastCards.Count -eq 0) { Refresh-GuidedView }
-        $path = Write-GuidedReport -Cards $script:LastCards -Queue $script:LastQueue -Verdict $script:LastVerdict -ProfileName $script:LastProfileName
+        $path = Write-GuidedReport -Cards $script:LastCards -Queue $script:LastQueue -Verdict $script:LastVerdict -ProfileName $script:LastProfileName -RoutineSteps @(Get-CurrentRoutineState) -SessionFocus $SessionFocusBox.Text
         [System.Windows.MessageBox]::Show("Report saved:`r`n$path", 'GPTOPT Guided Control Center') | Out-Null
     } catch {
         [System.Windows.MessageBox]::Show($_.Exception.Message, 'GPTOPT Guided Control Center') | Out-Null
@@ -447,6 +532,14 @@ $Window.FindName('AdvancedBtn').Add_Click({
 
 $DetailsToggle.Add_Checked({ $DetailsBox.Visibility = 'Visible' })
 $DetailsToggle.Add_Unchecked({ $DetailsBox.Visibility = 'Collapsed' })
+$Window.FindName('ResetRoutineBtn').Add_Click({ Initialize-Routine; $SessionFocusBox.Clear() })
+$ProfileBox.Add_SelectionChanged({
+    if ($ProfileBox.SelectedIndex -ge 0) {
+        Initialize-Routine
+        Refresh-GuidedView
+    }
+})
 
+Initialize-Routine
 Refresh-GuidedView
 $Window.ShowDialog() | Out-Null
