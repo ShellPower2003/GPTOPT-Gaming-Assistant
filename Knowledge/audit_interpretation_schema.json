@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Gaming Audit Interpretation",
+  "description": "Schema for interpreting raw audit results and mapping them to plain-language recommendations.",
+  "type": "object",
+  "properties": {
+    "category": {
+      "type": "string",
+      "description": "The category of the recommendation, e.g. timer-holder, graphics-flags, background-load, etc.",
+      "enum": [
+        "timer-holder",
+        "rtss-halo-240",
+        "halo-settings-baseline",
+        "flydigi-controller-stack",
+        "steelseries-sonar",
+        "windows-graphics-flags",
+        "backup-and-rollback",
+        "background-load"
+      ]
+    },
+    "action": {
+      "type": "string",
+      "description": "Concise description of the action or recommendation (e.g. 'Enable Game Mode')."
+    },
+    "status": {
+      "type": "string",
+      "description": "Interpretation of the audit result.  It indicates whether the current system state matches, deviates or conflicts with the recommended setting.",
+      "enum": [
+        "applied",
+        "missing",
+        "conflict",
+        "unknown"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "description": "How critical the recommendation is for performance/latency.",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "Plain-language guidance to the user explaining what to do if the status is not 'applied'."
+    },
+    "rollback": {
+      "type": "string",
+      "description": "Instructions on how to undo the recommendation if necessary."
+    }
+  },
+  "required": [
+    "category",
+    "action",
+    "status",
+    "severity",
+    "recommendation"
+  ]
+}
