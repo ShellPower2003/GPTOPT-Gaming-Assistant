@@ -4,6 +4,14 @@
 
 Use the same route, same scene, same cap method, and same background conditions before comparing runs.
 
+## Current CapFrameX baseline
+
+- Target release: CapFrameX v1.8.7 beta when testing the current beta workflow.
+- Plugin status: PMC Reader plugin is confirmed available for this setup. Future CapFrameX setup scripts should include plugin handling instead of treating it as unknown.
+- Setup expectation: download/install CapFrameX, stop stale PresentMon processes, verify .NET 9 Desktop Runtime, copy/unblock the PMC plugin when the release asset is present, preserve/back up existing CapFrameX config, then launch CapFrameX.
+- Safety rule: do not automatically disable VBS, Memory Integrity, Hyper-V, or other Windows security features just to make PMC counters work. Mention those only as possible blockers if PMC sensors show zero or fail to initialize.
+- Normal benchmark rule: PMC counters are useful, but normal Halo/frametime capture does not require PMC counters. Do not block basic capture troubleshooting on PMC availability.
+
 ## Minimum capture discipline
 
 - keep map / route constant
