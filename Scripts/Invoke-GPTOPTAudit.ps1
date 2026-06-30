@@ -67,6 +67,7 @@ if ($manifests.Count -eq 0) {
 }
 
 foreach ($manifest in $manifests) {
+    $module = $null
     try {
         $module = Import-Module -Name $manifest.FullName -Force -PassThru
         $auditCommand = Get-Command -Name "$($module.Name)\Invoke-GPTOPTAudit" -ErrorAction Stop
