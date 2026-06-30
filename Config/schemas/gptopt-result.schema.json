@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gptopt.dev/schemas/gptopt-result.schema.json",
+  "title": "GPTOPT diagnostic result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "Timestamp",
+    "Module",
+    "Category",
+    "Severity",
+    "Status",
+    "Finding",
+    "Evidence",
+    "RecommendedAction",
+    "Risk",
+    "UndoAvailable",
+    "Source",
+    "Confidence"
+  ],
+  "properties": {
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "Module": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Category": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Severity": {
+      "enum": [
+        "None",
+        "Low",
+        "Medium",
+        "High",
+        "Critical"
+      ]
+    },
+    "Status": {
+      "enum": [
+        "PASS",
+        "WARN",
+        "FAIL",
+        "ACTION",
+        "INFO",
+        "UNKNOWN"
+      ]
+    },
+    "Finding": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "Name",
+          "Value",
+          "Source"
+        ],
+        "properties": {
+          "Name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "Value": {},
+          "Source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "CollectedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "RecommendedAction": {
+      "type": "string"
+    },
+    "Risk": {
+      "enum": [
+        "None",
+        "Low",
+        "Medium",
+        "High",
+        "Critical"
+      ]
+    },
+    "UndoAvailable": {
+      "type": "boolean"
+    },
+    "Source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Confidence": {
+      "enum": [
+        "Low",
+        "Medium",
+        "High"
+      ]
+    }
+  }
+}
