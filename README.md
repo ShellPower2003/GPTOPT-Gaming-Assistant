@@ -1,5 +1,16 @@
 # GPTOPT Gaming Assistant
 
+## Run it tonight
+
+1. Download or clone the repository on Windows 10/11.
+2. Double-click `App/GPTOPT-Audit.cmd`.
+3. Review the HTML report opened from `Desktop\\GPTOPT-Logs`.
+
+This path is read-only. It inventories Windows, CPU, GPU, power plan, known overlay processes, and CapFrameX/PresentMon/RTSS availability. It does not change services, registry values, security controls, drivers, or game files.
+
+PowerShell users can run `./Start-GPTOPT.ps1`; add `-NoOpen` to generate reports without opening the browser.
+
+
 Central repository for a custom gaming optimization assistant focused on Windows 11 tuning, latency reduction, benchmarking, NVIDIA profile work, and practical troubleshooting for performance-sensitive PC gaming setups.
 
 This repo now serves as the **single hub** for the earlier experimental repositories:
