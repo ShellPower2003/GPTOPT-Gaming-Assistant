@@ -54,3 +54,8 @@ jobs:
           } else {
             throw 'HaloSight smoke_test.ps1 not found.'
           }
+
+      - name: Run modular audit smoke test
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests\Pester\Invoke-GPTOPTAudit.Smoke.ps1
