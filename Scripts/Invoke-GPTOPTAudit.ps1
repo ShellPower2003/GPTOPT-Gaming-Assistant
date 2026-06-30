@@ -98,7 +98,7 @@ New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
 $stamp = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')
 $base = Join-Path $OutputPath "GPTOPT-Audit-$stamp"
 
-@($results) | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath "$base.json" -Encoding UTF8
+ConvertTo-Json -InputObject @($results) -Depth 10 | Set-Content -LiteralPath "$base.json" -Encoding UTF8
 @($results) | Export-Csv -LiteralPath "$base.csv" -NoTypeInformation -Encoding UTF8
 @($results) | Format-Table Status, Severity, Module, Finding -AutoSize | Out-String |
     Set-Content -LiteralPath "$base.txt" -Encoding UTF8
