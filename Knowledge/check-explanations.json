@@ -174,5 +174,43 @@
       "risk": "Low",
       "undo": "Reopen the app if needed."
     }
+  },
+  "updatedOn": "2026-07-02",
+  "guidedCards": {
+    "Windows Reboot State": {
+      "label": "Windows reboot readiness",
+      "whyItMatters": "Pending Windows servicing can make driver state and benchmark comparisons inconsistent.",
+      "goodState": "No Windows Update or component-servicing reboot is pending; cleanup-only markers are treated as review items."
+    },
+    "Windows Gaming Settings": {
+      "label": "Windows gaming setup",
+      "whyItMatters": "Graphics scheduling, desktop composition, Game Mode, and background capture can affect frame pacing and test consistency.",
+      "goodState": "HAGS, MPO, Game Mode, and Game DVR match the selected gaming baseline."
+    },
+    "RTSS FPS Cap": {
+      "label": "Halo frame limiter",
+      "whyItMatters": "One confirmed limiter avoids stacked caps and makes frame-time comparisons repeatable.",
+      "goodState": "The Halo RTSS profile uses a 240 FPS limit with application detection level 2."
+    },
+    "FPS Limiter": {
+      "label": "Frame limiter",
+      "whyItMatters": "Using one intentional limiter prevents conflicting caps and unclear performance results.",
+      "goodState": "The selected game profile identifies one limiter strategy and no competing cap is active."
+    },
+    "Halo Display Settings": {
+      "label": "Halo display setup",
+      "whyItMatters": "Resolution, scaling, VSync, and frame targets must stay consistent for trustworthy comparisons.",
+      "goodState": "Halo settings exist and match the selected profile, or the check is not applicable to the current game."
+    },
+    "Audio Routing": {
+      "label": "Game audio route",
+      "whyItMatters": "A predictable output path avoids missing game or voice audio and removes an avoidable session variable.",
+      "goodState": "The intended audio route is available and any required Sonar process or virtual device is detected."
+    },
+    "Optional Session Tools": {
+      "label": "Session tools",
+      "whyItMatters": "Running only intentional overlays, controller apps, and capture tools reduces conflicts and keeps tests reproducible.",
+      "goodState": "Only the tools needed for this session are open; missing optional tools do not block readiness."
+    }
   }
 }
