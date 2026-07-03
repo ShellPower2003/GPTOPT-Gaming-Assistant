@@ -101,7 +101,7 @@
         {
           "id": "rtss.halo.cap",
           "area": "FPS Cap",
-          "goodWhen": "HaloInfinite.exe.cfg has FramerateLimit=240 and ApplicationDetectionLevel is not 0.",
+          "goodWhen": "HaloInfinite.exe.cfg has FramerateLimit=240 and ApplicationDetectionLevel=2.",
           "plainGood": "RTSS is set as the Halo FPS limiter at 240 FPS.",
           "plainFix": "RTSS is installed, but Halo is not clearly capped by its own RTSS profile.",
           "recommendedAction": "Apply RTSS Halo 240 baseline.",

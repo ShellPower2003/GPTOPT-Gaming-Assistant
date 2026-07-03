@@ -10,6 +10,14 @@ $LauncherPath = Join-Path $Root 'GPTOPT_LAUNCHER.cmd'
 if(!(Test-Path -LiteralPath $LauncherPath)){ $LauncherPath = Join-Path $RepoRoot 'GPTOPT_LAUNCHER.cmd' }
 $RunGptOptPath = Join-Path $Root 'Run-GPTOPT.ps1'
 if(!(Test-Path -LiteralPath $RunGptOptPath)){ $RunGptOptPath = Join-Path $RepoRoot 'Run-GPTOPT.ps1' }
+$GuidedControlPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTGuidedControlCenter.ps1'
+$AdvancedControlPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTControlCenter.ps1'
+$BootstrapPath = Join-Path $RepoRoot 'gptopt.ps1'
+$SafetyPath = Join-Path $RepoRoot 'Scripts\Test-GPTOPTSafety.ps1'
+$GuidancePath = Join-Path $RepoRoot 'Knowledge\gptopt-guidance-library.json'
+$SessionInsightsPath = Join-Path $RepoRoot 'Scripts\GPTOPT.SessionInsights.ps1'
+$SessionStackPath = Join-Path $RepoRoot 'Scripts\GPTOPT.SessionStack.ps1'
+$SessionAppCatalogPath = Join-Path $RepoRoot 'Knowledge\session-app-catalog.json'
 
 function Assert($Condition, $Message){
     if(-not $Condition){ throw $Message }
@@ -22,6 +30,14 @@ function Assert-Parses($Path){
 
 Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.ps1' |
     ForEach-Object { Assert-Parses $_.FullName }
+
+Assert (Test-Path -LiteralPath $GuidancePath) "$GuidancePath missing."
+Assert (Test-Path -LiteralPath $SessionAppCatalogPath) "$SessionAppCatalogPath missing."
+
+foreach($path in @($RunGptOptPath,$GuidedControlPath,$AdvancedControlPath,$BootstrapPath,$SafetyPath,$SessionInsightsPath,$SessionStackPath)){
+    Assert (Test-Path -LiteralPath $path) "$path missing."
+    Assert-Parses $path
+}
 
 Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.json' |
     ForEach-Object { $null = Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json }
@@ -61,15 +77,84 @@ try{
 }
 
 $launcherText = Get-Content -Raw -LiteralPath $LauncherPath
-Assert (($launcherText -match 'Run-GPTOPT\.ps1"?\s+-Mode\s+gui') -or ($launcherText -match 'HaloSightGUI\.ps1')) 'GPTOPT_LAUNCHER.cmd must launch the GUI-first path.'
+Assert ($launcherText -match 'Run-GPTOPT\.ps1"?\s+-Mode\s+guided') 'GPTOPT_LAUNCHER.cmd must launch Guided Mode first.'
 Assert ($launcherText -notmatch '(?i):menu|set /p|Select an option|HaloSight Start|HaloSight Stop|HaloSight Status|HaloSight Settings|Run Smoke Test') 'GPTOPT_LAUNCHER.cmd contains old menu workflow.'
 Assert ($launcherText -notmatch '(?i)HaloSight\.ps1"\s+-Mode\s+(start|stop|status|report)') 'GPTOPT_LAUNCHER.cmd exposes direct HaloSight modes.'
 
 $runText = Get-Content -Raw -LiteralPath $RunGptOptPath
-Assert ($runText -match '\[ValidateSet\(''gui'',''test''\)\]') 'Run-GPTOPT.ps1 must only expose gui/test modes.'
-Assert ($runText -match '\[string\]\$Mode\s*=\s*''gui''') 'Run-GPTOPT.ps1 must default to GUI mode.'
-Assert ($runText -match 'HaloSightGUI\.ps1') 'Run-GPTOPT.ps1 gui mode must launch HaloSightGUI.ps1.'
-Assert ($runText -notmatch "(?i)'(start|stop|status|settings)'") 'Run-GPTOPT.ps1 exposes removed normal-user modes.'
+Assert ($runText -match "'guided'" -and $runText -match "'gui'" -and $runText -match "'advanced'" -and $runText -match "'test'" -and $runText -match "'safety'" -and $runText -match "'recommend'" -and $runText -match "'queue'" -and $runText -match "'report'") 'Run-GPTOPT.ps1 must expose the app router modes.'
+Assert ($runText -match '\[string\]\$Mode\s*=\s*''guided''') 'Run-GPTOPT.ps1 must default to Guided Mode.'
+Assert ($runText -match 'Invoke-GPTOPTGuidedControlCenter\.ps1') 'Run-GPTOPT.ps1 guided mode must launch the Guided Control Center first.'
+Assert ($runText -match '(?s)''gui''\s*\{\s*Invoke-GPTOPTScript\s+-Path\s+\$HaloSightGui\s*\}') 'Run-GPTOPT.ps1 gui mode must preserve the HaloSight capture GUI route.'
+Assert ($runText -match 'Invoke-GPTOPTControlCenter\.ps1' -and $runText -match 'Invoke-GPTOPTAppGUI\.ps1') 'Run-GPTOPT.ps1 must keep Advanced Control Center fallback available.'
+Assert ($runText -notmatch '(?i)HaloSight\.ps1[\s\S]{0,160}-Mode\s+(start|stop|status|settings)') 'Run-GPTOPT.ps1 exposes direct HaloSight normal-user modes.'
+Assert ($runText -match 'Test-GPTOPTSafety\.ps1') 'Run-GPTOPT.ps1 must route to the safety scanner.'
+Assert ($runText -match 'New-GPTOPTPreviewQueue') 'Run-GPTOPT.ps1 must build a preview queue.'
+Assert ($runText -match 'New-GPTOPTReport') 'Run-GPTOPT.ps1 must generate reports.'
+
+$guidedText = Get-Content -Raw -LiteralPath $GuidedControlPath
+Assert ($guidedText -match 'Ready to Play' -and $guidedText -match 'Ready with Review Items' -and $guidedText -match 'Fix First') 'Guided Control Center must show readiness cards.'
+Assert ($guidedText -match 'Game Profile' -and $guidedText -match 'Get-GuidedProfiles') 'Guided Control Center must include a profile selector.'
+Assert ($guidedText -match 'halo\.infinite' -and $guidedText -match 'generic\.shooter') 'Guided Control Center must support Halo without being Halo-only.'
+Assert ($guidedText -match 'Show Details' -and $guidedText -match 'DetailsBox.Visibility = ''Collapsed''') 'Guided Control Center must hide technical details by default.'
+Assert ($guidedText -match 'Recommended Action Queue' -and $guidedText -match 'WhatItChanges' -and $guidedText -match 'BackupUndoPath' -and $guidedText -match 'RequiresReboot') 'Guided queue must explain changes, backup/undo, and reboot.'
+Assert ($guidedText -match 'Pre-Game Routine' -and $guidedText -match 'Initialize-Routine' -and $guidedText -match 'RoutineProgressText') 'Guided Control Center must include an interactive pre-game routine.'
+Assert ($guidedText -match 'Session Focus' -and $guidedText -match 'Get-CurrentRoutineState' -and $guidedText -match '## Pre-Game Routine') 'Guided reports must capture routine completion and session focus.'
+Assert ($guidedText -match 'Session Review' -and $guidedText -match 'Save-SessionReview' -and $guidedText -match 'Get-RecentSessionReviews') 'Guided Control Center must persist and display post-session reviews.'
+Assert ($guidedText -match 'LocalApplicationData' -and $guidedText -match 'session_\{0\}\.json' -and $guidedText -match 'RoutineCompleted') 'Session reviews must use local app data and capture routine completion.'
+Assert ($guidedText -match 'Input Feel' -and $guidedText -match 'Audio Confidence' -and $guidedText -match 'Warmup Outcome') 'Session review must capture player-performance signals.'
+Assert ($guidedText -match 'Why This Matters' -and $guidedText -match 'Get-GuidanceEntries' -and $guidedText -match 'Refresh-Guidance') 'Guided Control Center must expose provenance-backed guidance.'
+Assert ($guidedText -match 'Your Session Patterns' -and $guidedText -match 'Refresh-Insights' -and $guidedText -match 'LastInsights') 'Guided Control Center must turn session history into recommendations.'
+Assert ($guidedText -match '## Session Insights' -and $guidedText -match 'Next Session Recommendations') 'Guided reports must include session insights.'
+Assert ($guidedText -match 'Session Setup' -and $guidedText -match 'Prepare Session' -and $guidedText -match 'Refresh-SessionStack') 'Guided Control Center must expose session preparation.'
+Assert ($guidedText -match 'MessageBoxButton]::YesNo' -and $guidedText -match 'will not install software' -and $guidedText -match 'replace Timer Holder') 'Prepare Session must require explicit confirmation and preserve safety guarantees.'
+Assert ($guidedText -match '## Session Setup' -and $guidedText -match 'LastSessionStack') 'Guided reports must include session stack state.'
+Assert ($guidedText -match 'ApplicationDetectionLevel\\s\*=\\s\*2' -and $guidedText -match 'Get-SonarState') 'Guided readiness must require RTSS detection level 2 and use Sonar device fallback.'
+Assert ($guidedText -match 'Classification=Cleanup' -and $guidedText -match 'Classification=Servicing') 'Guided readiness must distinguish cleanup-only and servicing reboot states.'
+Assert ($guidedText -notmatch '(?i)Set-ItemProperty|New-ItemProperty|Remove-ItemProperty|reg\.exe\s+add|reg\.exe\s+delete|Restart-Computer|shutdown\.exe') 'Guided Control Center must not apply risky settings.'
+
+$bootstrapText = Get-Content -Raw -LiteralPath $BootstrapPath
+Assert ($bootstrapText -notmatch 'Set-Content\s+-Path\s+\$Run' -and $bootstrapText -notmatch 'Set-Content\s+-LiteralPath\s+\$Run') 'Bootstrap must not overwrite the tracked Run-GPTOPT.ps1 router.'
+Assert ($bootstrapText -match 'GPTOPT-LaunchFallback\.ps1') 'Bootstrap must use a separate fallback launcher when the tracked router is missing.'
+
+$safetyText = Get-Content -Raw -LiteralPath $SafetyPath
+Assert ($safetyText -match 'root\\Microsoft\\Windows\\DeviceGuard') 'Safety scan must query Win32_DeviceGuard from the DeviceGuard namespace.'
+Assert ($safetyText -match 'CBS PackagesPending' -and $safetyText -match 'Classification = ''Cleanup''' -and $safetyText -match 'Classification = ''Servicing''') 'Safety scan must split servicing and cleanup-only reboot states.'
+Assert ($safetyText -match '\$null -eq \$renameValue' -and $safetyText -match '\{ @\(\) \} else \{ @\(\$renameValue\) \}') 'Safety scan must treat an absent pending rename marker as zero entries.'
+
+. $SessionStackPath
+$sessionCatalog = Get-Content -Raw -LiteralPath $SessionAppCatalogPath | ConvertFrom-Json
+$fakeProcessProbe = { param([string[]]$Names) return $false }
+$fakePathProbe = { param($Path) return $true }
+$fakeCommandProbe = { param($Name) return $null }
+$stackPlan = @(Get-GPTOPTSessionStackPlan -Catalog $sessionCatalog -ProfileId 'halo.infinite' -ProcessProbe $fakeProcessProbe -PathProbe $fakePathProbe -CommandProbe $fakeCommandProbe)
+Assert (@($stackPlan | Where-Object { $_.Id -eq 'rtss' -and $_.Role -eq 'Required' -and $_.Status -eq 'ReadyToStart' }).Count -eq 1) 'Halo session setup must require a resolvable RTSS app.'
+Assert (@($stackPlan | Where-Object { $_.Id -eq 'gptopt.timer-holder' -and $_.Status -eq 'Manual' }).Count -eq 1) 'Session setup must preserve Timer Holder as a manual dependency when no repo launcher exists.'
+$script:sessionAppsLaunched = @()
+$fakeLauncher = { param($Path) $script:sessionAppsLaunched += $Path }
+$stackResults = @(Invoke-GPTOPTSessionStackPlan -Plan $stackPlan -Launcher $fakeLauncher -Confirm:$false)
+Assert (@($stackResults | Where-Object Outcome -eq 'Started').Count -eq 3) 'Session setup must start only resolved startable applications.'
+Assert ($script:sessionAppsLaunched.Count -eq 3) 'Session setup launcher invocation count is incorrect.'
+Assert (@($stackResults | Where-Object { $_.Id -eq 'gptopt.timer-holder' -and $_.Outcome -eq 'Skipped' }).Count -eq 1) 'Session setup must not replace or start Timer Holder implicitly.'
+
+. $SessionInsightsPath
+$insightReviews = @(
+    [pscustomobject]@{ ProfileId='halo.infinite'; RecordedAt='2026-06-20T04:00:00Z'; Rating='2 - Off'; InputFeel='Delayed'; AudioConfidence='Wrong route'; WarmupOutcome='Needed more' },
+    [pscustomobject]@{ ProfileId='halo.infinite'; RecordedAt='2026-06-19T04:00:00Z'; Rating='3 - Mixed'; InputFeel='Over-aiming'; AudioConfidence='Hard to locate'; WarmupOutcome='Skipped' },
+    [pscustomobject]@{ ProfileId='halo.infinite'; RecordedAt='2026-06-18T04:00:00Z'; Rating='3 - Mixed'; InputFeel='Consistent'; AudioConfidence='Clear'; WarmupOutcome='Ready' },
+    [pscustomobject]@{ ProfileId='generic.shooter'; RecordedAt='2026-06-17T04:00:00Z'; Rating='5 - Excellent'; InputFeel='Consistent'; AudioConfidence='Clear'; WarmupOutcome='Ready' }
+)
+$sessionInsights = Get-GPTOPTSessionInsights -Reviews $insightReviews -ProfileId 'halo.infinite'
+Assert ($sessionInsights.SessionCount -eq 3) 'Session insights must stay scoped to the selected profile.'
+Assert ($sessionInsights.AverageRating -eq 2.67) 'Session insights average rating calculation is incorrect.'
+Assert (($sessionInsights.Recommendations -join ' ') -match 'input consistency') 'Session insights must prioritize recurring input issues.'
+Assert (($sessionInsights.Recommendations -join ' ') -match 'audio routes') 'Session insights must prioritize recurring audio issues.'
+Assert (($sessionInsights.Recommendations -join ' ') -match 'warmup') 'Session insights must prioritize recurring warmup issues.'
+
+$guidance = Get-Content -Raw -LiteralPath $GuidancePath | ConvertFrom-Json
+Assert ($guidance.version -eq 1 -and @($guidance.entries).Count -ge 5) 'Guidance library must contain versioned evidence entries.'
+Assert (@($guidance.entries | Where-Object { -not $_.evidenceType -or -not $_.sourcePath -or -not $_.verifiedOn }).Count -eq 0) 'Every guidance entry must identify evidence type, source path, and checked date.'
+Assert (@($guidance.entries | Where-Object { $_.id -eq 'halo.rtss.240' -and $_.appliesTo -contains 'halo.infinite' }).Count -eq 1) 'Halo RTSS guidance must remain profile-scoped.'
 
 $guiText = Get-Content -Raw -LiteralPath (Join-Path $Root 'scripts\HaloSightGUI.ps1')
 Assert ($guiText -match 'function Get-HaloSightDashboardState') 'Dashboard state function missing.'
