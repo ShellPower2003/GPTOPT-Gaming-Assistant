@@ -14,6 +14,7 @@ $GuidedControlPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTGuidedControlCent
 $AdvancedControlPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTControlCenter.ps1'
 $BootstrapPath = Join-Path $RepoRoot 'gptopt.ps1'
 $SafetyPath = Join-Path $RepoRoot 'Scripts\Test-GPTOPTSafety.ps1'
+$CheckExplanationsPath = Join-Path $RepoRoot 'Knowledge\check-explanations.json'
 
 function Assert($Condition, $Message){
     if(-not $Condition){ throw $Message }
@@ -89,6 +90,16 @@ Assert ($guidedText -match 'Ready to Play' -and $guidedText -match 'Ready with R
 Assert ($guidedText -match 'Game Profile' -and $guidedText -match 'Get-GuidedProfiles') 'Guided Control Center must include a profile selector.'
 Assert ($guidedText -match 'halo\.infinite' -and $guidedText -match 'generic\.shooter') 'Guided Control Center must support Halo without being Halo-only.'
 Assert ($guidedText -match 'Show Details' -and $guidedText -match 'DetailsBox.Visibility = ''Collapsed''') 'Guided Control Center must hide technical details by default.'
+Assert ($guidedText -match 'check-explanations\.json' -and $guidedText -match 'Get-CardExplanation') 'Guided Mode must load the check explanation model.'
+Assert ($guidedText -match 'Current status:' -and $guidedText -match 'Summary:' -and $guidedText -match 'Why it matters:' -and $guidedText -match 'Good state:' -and $guidedText -match 'Safe action:' -and $guidedText -match 'Risk:' -and $guidedText -match 'Undo path:') 'Every readiness card must render the required explanation fields.'
+Assert ($guidedText -notmatch '(?s)\$cardLines.*?\$card\.Details') 'Raw card evidence must not be rendered in readiness cards.'
+Assert (Test-Path -LiteralPath $CheckExplanationsPath) 'Knowledge/check-explanations.json missing.'
+$checkExplanations = Get-Content -Raw -LiteralPath $CheckExplanationsPath | ConvertFrom-Json
+$requiredAreas = @('Windows Reboot State','Windows Gaming Settings','RTSS FPS Cap','FPS Limiter','Halo Display Settings','Audio Routing','Optional Session Tools')
+foreach($area in $requiredAreas){
+    $entry = $checkExplanations.guidedCards.PSObject.Properties[$area].Value
+    Assert ($null -ne $entry -and $entry.label -and $entry.whyItMatters -and $entry.goodState) "Missing Guided explanation for $area."
+}
 Assert ($guidedText -match 'Recommended Action Queue' -and $guidedText -match 'WhatItChanges' -and $guidedText -match 'BackupUndoPath' -and $guidedText -match 'RequiresReboot') 'Guided queue must explain changes, backup/undo, and reboot.'
 Assert ($guidedText -match 'Pre-Game Routine' -and $guidedText -match 'Initialize-Routine' -and $guidedText -match 'RoutineProgressText') 'Guided Control Center must include an interactive pre-game routine.'
 Assert ($guidedText -match 'Session Focus' -and $guidedText -match 'Get-CurrentRoutineState' -and $guidedText -match '## Pre-Game Routine') 'Guided reports must capture routine completion and session focus.'
