@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GPTOPT Guided Check Explanations",
+  "version": "0.1.0",
+  "purpose": "Plain-language explanations for readiness checks shown in Guided Mode.",
+  "displayContract": {
+    "summary": "One sentence for the card.",
+    "whyItMatters": "Why a player should care.",
+    "goodState": "What good looks like.",
+    "badState": "What deserves review or action.",
+    "safeAction": "Lowest-risk user action.",
+    "risk": "Low, Medium, or High.",
+    "undo": "How to reverse or recover.",
+    "showRawEvidence": "Only behind Show Details."
+  },
+  "checks": {
+    "display.refreshRate": {
+      "label": "Display refresh rate",
+      "summary": "Confirms Windows is actually running the monitor at the expected high refresh rate.",
+      "whyItMatters": "Halo can only feel as responsive as the display path allows. A 240 Hz monitor running at 60 Hz or 120 Hz adds visible delay and makes controller aim feel heavier.",
+      "goodState": "Primary gaming display is detected at the intended resolution and refresh rate, normally 3840x2160 at 240 Hz for the user's Omen OLED.",
+      "badState": "Wrong monitor, wrong resolution, or refresh below the expected value.",
+      "safeAction": "Set the correct refresh rate in Windows display settings or NVIDIA Control Panel.",
+      "risk": "Low",
+      "undo": "Revert the refresh rate from Windows display settings if the screen becomes unstable."
+    },
+    "power.plan": {
+      "label": "Windows power plan",
+      "summary": "Checks whether Windows is using a performance-oriented power plan.",
+      "whyItMatters": "Aggressive power saving can slow CPU wake behavior and make frame delivery less consistent during gameplay.",
+      "goodState": "High Performance, Ultimate Performance, or a verified GPTOPT gaming plan is active.",
+      "badState": "Balanced or vendor eco plans are active during a competitive session.",
+      "safeAction": "Switch to a known gaming power plan before launching Halo.",
+      "risk": "Low",
+      "undo": "Switch back to Balanced after gaming if lower idle power is preferred."
+    },
+    "timer.resolution": {
+      "label": "Timer resolution",
+      "summary": "Checks whether the system timer is held at the expected low-latency interval during gaming.",
+      "whyItMatters": "A stable 0.5 ms timer can improve consistency for frame pacing tools, input polling, overlays, and capture utilities.",
+      "goodState": "Timer is 0.5 ms while the GPTOPT timer holder is running.",
+      "badState": "Timer is higher than expected or no holder is active when the gaming profile expects one.",
+      "safeAction": "Start the repo-owned GPTOPT timer holder for the session.",
+      "risk": "Low",
+      "undo": "Stop the timer holder or reboot."
+    },
+    "usb.selectiveSuspend": {
+      "label": "USB selective suspend",
+      "summary": "Checks whether Windows can power down USB devices during use.",
+      "whyItMatters": "Controller, headset, and receiver devices can feel inconsistent if Windows power management suspends or wakes the USB path mid-session.",
+      "goodState": "USB selective suspend is disabled for the active gaming power plan.",
+      "badState": "USB selective suspend is enabled while using wired controller or audio devices.",
+      "safeAction": "Disable USB selective suspend for AC power in the active gaming plan.",
+      "risk": "Low",
+      "undo": "Re-enable it in advanced power settings."
+    },
+    "graphics.hags": {
+      "label": "Hardware-accelerated GPU scheduling",
+      "summary": "Checks the Windows HAGS setting used by the graphics stack.",
+      "whyItMatters": "HAGS can affect scheduling behavior, latency, and frame pacing. On this user's current baseline, HAGS on is the expected state.",
+      "goodState": "HAGS is on for the current RTX 5080 baseline unless testing proves otherwise.",
+      "badState": "HAGS differs from the selected profile without being part of a controlled test.",
+      "safeAction": "Leave it alone unless running a planned A/B test.",
+      "risk": "Medium",
+      "undo": "Change the Windows graphics setting back and reboot."
+    },
+    "graphics.mpo": {
+      "label": "Multiplane overlay",
+      "summary": "Checks whether Windows MPO is disabled for the gaming baseline.",
+      "whyItMatters": "MPO can interact badly with overlays, borderless fullscreen, HDR, VRR, and capture tools on some systems. This user's baseline expects MPO disabled.",
+      "goodState": "MPO is disabled for the current GPTOPT Halo profile.",
+      "badState": "MPO is enabled when the profile expects it disabled, especially with overlay/display symptoms.",
+      "safeAction": "Only change MPO through a backed-up GPTOPT action, not manually during a session.",
+      "risk": "Medium",
+      "undo": "Restore the prior registry value from GPTOPT backup or remove the override and reboot."
+    },
+    "windows.gameMode": {
+      "label": "Game Mode",
+      "summary": "Checks whether Windows Game Mode matches the gaming profile.",
+      "whyItMatters": "Game Mode changes how Windows prioritizes game workloads and background activity. The current baseline expects it enabled.",
+      "goodState": "Game Mode is enabled for the Halo profile.",
+      "badState": "Game Mode is disabled unexpectedly or changed without testing.",
+      "safeAction": "Enable Game Mode before testing Halo performance.",
+      "risk": "Low",
+      "undo": "Turn Game Mode off in Windows Gaming settings."
+    },
+    "windows.gameDvr": {
+      "label": "Game DVR and background capture",
+      "summary": "Checks whether Windows background recording features are disabled.",
+      "whyItMatters": "Background capture can add overhead, storage writes, and inconsistent frame pacing. Dedicated tools like CapFrameX, OBS, or RTSS are preferred when intentionally capturing.",
+      "goodState": "Game DVR/background capture is disabled.",
+      "badState": "Background capture is enabled without a reason.",
+      "safeAction": "Disable background capture in Windows Gaming settings.",
+      "risk": "Low",
+      "undo": "Re-enable it if Xbox Game Bar recording is needed."
+    },
+    "dwm.badTweaks": {
+      "label": "DWM tweak leftovers",
+      "summary": "Checks for old registry tweaks that try to disable or alter Desktop Window Manager behavior.",
+      "whyItMatters": "Modern Windows games rely on DWM even in borderless fullscreen. Bad legacy tweaks can create stutter, broken login behavior, HDR issues, or weird input feel.",
+      "goodState": "No known bad DWM tweak keys are present.",
+      "badState": "Legacy DWM keys like disabled composition or fake frame-latency overrides are present.",
+      "safeAction": "Remove only known bad values with a backup.",
+      "risk": "Medium",
+      "undo": "Restore the exported registry backup or system restore point."
+    },
+    "halo.json": {
+      "label": "Halo Infinite video config",
+      "summary": "Checks the Halo settings file against the selected profile without blindly changing it.",
+      "whyItMatters": "Halo's in-game settings control render scale, frame targets, HDR, and visual effects that directly affect latency, visibility, and GPU load.",
+      "goodState": "Steam Halo config uses the expected resolution, borderless mode, 100 percent scale, VSync off, HDR preference, and 960/960 min-target frame settings when selected.",
+      "badState": "Unexpected scaling, VSync, wrong resolution, wrong FPS targets, or visual effects enabled against the competitive baseline.",
+      "safeAction": "Preview exact config changes before applying. Never rewrite unrelated Halo JSON fields.",
+      "risk": "Medium",
+      "undo": "Restore the Halo config backup or let Halo regenerate the file."
+    },
+    "rtss.haloProfile": {
+      "label": "RTSS Halo profile",
+      "summary": "Checks whether RTSS is capping Halo correctly and detecting the game process.",
+      "whyItMatters": "A clean RTSS cap can improve frame pacing and controller feel. Stacked or wrong caps can create delay or uneven frame delivery.",
+      "goodState": "HaloInfinite.exe profile exists with FramerateLimit 240 and ApplicationDetectionLevel 2 for the current baseline.",
+      "badState": "No Halo profile, wrong cap, disabled detection, stealth/custom D3D settings causing capture or overlay issues, or multiple stacked limiters.",
+      "safeAction": "Use the GPTOPT RTSS baseline action with backup, then retest frame pacing.",
+      "risk": "Low",
+      "undo": "Restore the previous RTSS profile file from backup."
+    },
+    "apps.steam": {
+      "label": "Steam state",
+      "summary": "Checks whether Steam is available for the Steam Halo install.",
+      "whyItMatters": "The user's Halo setup is Steam-first. Xbox/Gaming Services should not be touched unless login or launch actually requires it.",
+      "goodState": "Steam is installed and available before launching Halo.",
+      "badState": "Steam missing, not running when needed, or Halo path cannot be found.",
+      "safeAction": "Open Steam and verify Halo's install path.",
+      "risk": "Low",
+      "undo": "No system undo needed."
+    },
+    "apps.flydigi": {
+      "label": "Flydigi controller stack",
+      "summary": "Checks whether the Flydigi/Vader controller stack is available.",
+      "whyItMatters": "The user's controller feel depends on Flydigi SpaceStation, GameControllerService, and app-side stick settings. Killing it can change input behavior.",
+      "goodState": "Flydigi SpaceStation or GameControllerService is running and the controller device is present.",
+      "badState": "Controller service missing, device absent, or virtual mouse/keyboard behavior interfering with gameplay.",
+      "safeAction": "Verify SpaceStation and device state before changing controller settings.",
+      "risk": "Low",
+      "undo": "Restart SpaceStation or reconnect the controller."
+    },
+    "apps.sonar": {
+      "label": "SteelSeries Sonar audio routing",
+      "summary": "Checks whether the Sonar audio path needed for the headset is available.",
+      "whyItMatters": "The user needs Sonar for headphones. Disabling or killing it can break audio routing even if it looks like background bloat.",
+      "goodState": "SteelSeries/Sonar process, service, or audio device is present when the headset route depends on it.",
+      "badState": "Sonar route missing when selected as the active output/input path.",
+      "safeAction": "Keep Sonar running if the headset depends on it.",
+      "risk": "Low",
+      "undo": "Restart SteelSeries GG/Sonar or select a different Windows audio output."
+    },
+    "reboot.status": {
+      "label": "Pending reboot",
+      "summary": "Explains whether Windows truly needs a reboot or only has app cleanup queued.",
+      "whyItMatters": "A real Windows Update or component-servicing reboot can affect driver and system state. A single pending file rename is usually just cleanup and should not block play.",
+      "goodState": "No Windows Update or CBS/component servicing reboot is pending.",
+      "badState": "Windows Update or component servicing reports a real reboot requirement.",
+      "safeAction": "Treat PendingFileRenameOperations-only as Review. Treat CBS/Windows Update reboot as Action.",
+      "risk": "Low",
+      "undo": "Reboot clears legitimate pending operations; stale cleanup entries may need separate review."
+    },
+    "background.load": {
+      "label": "Background load",
+      "summary": "Shows whether non-game apps are consuming CPU, GPU, disk, or memory during the session.",
+      "whyItMatters": "High background load can steal scheduling time and create inconsistent frame pacing or input feel.",
+      "goodState": "No unexpected heavy apps during a Halo session. Firefox can be ignored when it is only being used for ChatGPT troubleshooting.",
+      "badState": "Unexpected scanners, launchers, updaters, RGB suites, browsers, or recording tools consuming resources during the run.",
+      "safeAction": "Close only unnecessary apps. Do not kill RTSS, Afterburner, Flydigi, Sonar, Steam, or capture tools needed for the session.",
+      "risk": "Low",
+      "undo": "Reopen the app if needed."
+    }
+  }
+}
