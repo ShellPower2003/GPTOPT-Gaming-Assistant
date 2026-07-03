@@ -92,7 +92,11 @@ Assert ($guidedText -match 'halo\.infinite' -and $guidedText -match 'generic\.sh
 Assert ($guidedText -match 'Show Details' -and $guidedText -match 'DetailsBox.Visibility = ''Collapsed''') 'Guided Control Center must hide technical details by default.'
 Assert ($guidedText -match 'check-explanations\.json' -and $guidedText -match 'Get-CardExplanation') 'Guided Mode must load the check explanation model.'
 Assert ($guidedText -match 'Current status:' -and $guidedText -match 'Summary:' -and $guidedText -match 'Why it matters:' -and $guidedText -match 'Good state:' -and $guidedText -match 'Safe action:' -and $guidedText -match 'Risk:' -and $guidedText -match 'Undo path:') 'Every readiness card must render the required explanation fields.'
-Assert ($guidedText -notmatch '(?s)\$cardLines.*?\$card\.Details') 'Raw card evidence must not be rendered in readiness cards.'
+$cardRenderStart = $guidedText.IndexOf('$cardLines = foreach')
+$cardRenderEnd = $guidedText.IndexOf('Set-TextBoxLines -TextBox $CardsBox', $cardRenderStart)
+Assert ($cardRenderStart -ge 0 -and $cardRenderEnd -gt $cardRenderStart) 'Readiness card rendering block not found.'
+$cardRenderText = $guidedText.Substring($cardRenderStart, $cardRenderEnd - $cardRenderStart)
+Assert ($cardRenderText -notmatch '\$card\.Details') 'Raw card evidence must not be rendered in readiness cards.'
 Assert (Test-Path -LiteralPath $CheckExplanationsPath) 'Knowledge/check-explanations.json missing.'
 $checkExplanations = Get-Content -Raw -LiteralPath $CheckExplanationsPath | ConvertFrom-Json
 $requiredAreas = @('Windows Reboot State','Windows Gaming Settings','RTSS FPS Cap','FPS Limiter','Halo Display Settings','Audio Routing','Optional Session Tools')
