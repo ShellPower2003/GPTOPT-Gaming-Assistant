@@ -112,7 +112,7 @@ Assert ($guidedText -match 'Classification=Cleanup' -and $guidedText -match 'Cla
 Assert ($guidedText -notmatch '(?i)Set-ItemProperty|New-ItemProperty|Remove-ItemProperty|reg\.exe\s+add|reg\.exe\s+delete|Restart-Computer|shutdown\.exe') 'Guided Control Center must not apply risky settings.'
 
 $bootstrapText = Get-Content -Raw -LiteralPath $BootstrapPath
-Assert ($bootstrapText -notmatch 'Set-Content\s+-Path\s+\$Run' -and $bootstrapText -notmatch 'Set-Content\s+-LiteralPath\s+\$Run') 'Bootstrap must not overwrite the tracked Run-GPTOPT.ps1 router.'
+Assert ($bootstrapText -match '\$Run\s*=\s*Join-Path\s+\$Root\s+''GPTOPT-LaunchFallback\.ps1''[\s\S]{0,300}Set-Content\s+-LiteralPath\s+\$Run') 'Bootstrap may write only the separate fallback launcher after confirming the tracked router is missing.'
 Assert ($bootstrapText -match 'GPTOPT-LaunchFallback\.ps1') 'Bootstrap must use a separate fallback launcher when the tracked router is missing.'
 
 $safetyText = Get-Content -Raw -LiteralPath $SafetyPath
