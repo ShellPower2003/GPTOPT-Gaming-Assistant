@@ -10,6 +10,7 @@ $KnowledgeDir = Join-Path $Root 'Knowledge'
 $ReportsDir = Join-Path $Root 'Reports'
 $HealthModelPath = Join-Path $KnowledgeDir 'gptopt-health-model.json'
 $ProfileSchemaPath = Join-Path $KnowledgeDir 'game-profile-schema.json'
+$CheckExplanationsPath = Join-Path $KnowledgeDir 'check-explanations.json'
 $SafetyScanner = Join-Path $PSScriptRoot 'Test-GPTOPTSafety.ps1'
 $AdvancedControlCenter = Join-Path $PSScriptRoot 'Invoke-GPTOPTControlCenter.ps1'
 $LegacyControlCenter = Join-Path $PSScriptRoot 'Invoke-GPTOPTAppGUI.ps1'
@@ -31,6 +32,25 @@ function Read-JsonFile {
     }
 
     return $Fallback
+}
+
+$CheckExplanationModel = Read-JsonFile -Path $CheckExplanationsPath -Fallback ([pscustomobject]@{})
+
+function Get-CardExplanation {
+    param([string]$Area)
+
+    if (
+        $CheckExplanationModel.PSObject.Properties.Name -contains 'guidedCards' -and
+        $null -ne $CheckExplanationModel.guidedCards.PSObject.Properties[$Area]
+    ) {
+        return $CheckExplanationModel.guidedCards.PSObject.Properties[$Area].Value
+    }
+
+    return [pscustomobject]@{
+        label = $Area
+        whyItMatters = 'This check helps keep the selected gaming session consistent and explainable.'
+        goodState = 'The current state matches the selected profile or is explicitly marked not applicable.'
+    }
 }
 
 function Get-GuidedProfiles {
@@ -155,8 +175,6 @@ function Test-RTSS240Baseline {
     $text = Get-Content -Raw -LiteralPath $path -ErrorAction SilentlyContinue
     $hasCap = $text -match '(?im)^\s*FramerateLimit\s*=\s*240\s*$'
     $detectLevelTwo = $text -match '(?im)^\s*ApplicationDetectionLevel\s*=\s*2\s*
-    }
-}
 
 function New-Card {
     param(
@@ -326,7 +344,15 @@ function Write-GuidedReport {
         '## Readiness Cards'
     )
     foreach ($card in $Cards) {
-        $lines += "- [$($card.Status)] $($card.Area): $($card.Meaning) Action: $($card.Action)"
+        $explanation = Get-CardExplanation -Area $card.Area
+        $lines += "- $($explanation.label)"
+        $lines += "  - Current status: $($card.Status)"
+        $lines += "  - Summary: $($card.Meaning)"
+        $lines += "  - Why it matters: $($explanation.whyItMatters)"
+        $lines += "  - Good state: $($explanation.goodState)"
+        $lines += "  - Safe action: $($card.Action)"
+        $lines += "  - Risk: $($card.Risk)"
+        $lines += "  - Undo path: $($card.UndoPath)"
     }
     $lines += ''
     $lines += '## Recommended Action Queue'
@@ -528,7 +554,8 @@ function Refresh-GuidedView {
     $VerdictText.Text = "$verdict - $($profile.DisplayName)"
 
     $cardLines = foreach ($card in $cards) {
-        "[$($card.Status)] $($card.Area)`r`n  What this means: $($card.Meaning)`r`n  What to do: $($card.Action)`r`n  Risk: $($card.Risk)`r`n  Backup/undo: $($card.UndoPath)`r`n"
+        $explanation = Get-CardExplanation -Area $card.Area
+        "$($explanation.label)`r`n  Current status: $($card.Status)`r`n  Summary: $($card.Meaning)`r`n  Why it matters: $($explanation.whyItMatters)`r`n  Good state: $($explanation.goodState)`r`n  Safe action: $($card.Action)`r`n  Risk: $($card.Risk)`r`n  Undo path: $($card.UndoPath)`r`n"
     }
     Set-TextBoxLines -TextBox $CardsBox -Lines $cardLines
 
@@ -591,6 +618,7 @@ Initialize-Routine
 Refresh-GuidedView
 $Window.ShowDialog() | Out-Null
 
+
     [pscustomobject]@{
         Found = $true
         Ready = ($hasCap -and $detectLevelTwo)
@@ -631,14 +659,26 @@ function Convert-AuditToGuidedCards {
     $checks = @($Audit.Checks)
 
     $pending = $checks | Where-Object { $_.Id -eq 'pending-reboot' } | Select-Object -First 1
-    if ($pending -and $pending.Level -eq 'Warning') {
-        $cards.Add((New-Card -Area 'Windows Reboot State' -Status 'Review' -Meaning 'Windows is waiting for an update or installer reboot. Benchmarks and game feel can be inconsistent until that is cleared.' -Action 'Restart when convenient, then audit again before testing settings.' -Risk 'Low. This completes an already pending Windows change.' -UndoPath 'Not required. GPTOPT does not trigger the reboot.' -Details $pending.Evidence))
+    if ($pending -and $pending.RequiresReboot) {
+        $cards.Add((New-Card -Area 'Windows Reboot State' -Status 'Review' -Meaning 'Windows Update or servicing is waiting for a reboot. Finish it before controlled benchmarks or ranked play.' -Action 'Restart before the next controlled gaming test.' -Risk 'Low. This completes an existing Windows servicing change.' -UndoPath 'Not required. GPTOPT does not trigger the reboot.' -Details $pending.Evidence))
+    } elseif ($pending -and $pending.Evidence -match 'Classification=Cleanup') {
+        $cards.Add((New-Card -Area 'Windows Reboot State' -Status 'Review' -Meaning 'App or driver cleanup file is waiting for reboot. This is usually not a Windows servicing problem.' -Action 'Reboot later if this persists, or after installing drivers/updates.' -Risk 'Low. This does not block play by itself.' -UndoPath 'Not required. GPTOPT does not trigger the reboot.' -Details $pending.Evidence))
     } else {
         $cards.Add((New-Card -Area 'Windows Reboot State' -Status 'Good' -Meaning 'No pending reboot markers were detected.' -Action 'No action needed.' -Risk 'None.' -UndoPath 'Not required.' -Details ($pending.Evidence)))
     }
 
-    $windows = $checks | Where-Object { $_.Id -in @('hags', 'mpo', 'game-mode', 'game-dvr') }
-    $cards.Add((New-Card -Area 'Windows Gaming Settings' -Status 'Review' -Meaning 'Windows graphics and capture settings were read successfully. GPTOPT keeps the registry names hidden unless you ask for details.' -Action 'Review only. Do not change Windows graphics settings without a backup snapshot.' -Risk 'Medium-low if changed later; this audit is read-only.' -UndoPath 'Future write actions must export the affected registry keys first.' -Details (($windows | ForEach-Object { "$($_.Name): $($_.Evidence)" }) -join "`r`n")))
+    $windows = @($checks | Where-Object { $_.Id -in @('hags', 'mpo', 'game-mode', 'game-dvr') })
+    $windowsReady = (
+        ($windows | Where-Object { $_.Id -eq 'hags' }).Status -eq 'HwSchMode=2' -and
+        ($windows | Where-Object { $_.Id -eq 'mpo' }).Status -eq 'OverlayTestMode=5' -and
+        ($windows | Where-Object { $_.Id -eq 'game-mode' }).Status -eq 'AutoGameModeEnabled=1' -and
+        ($windows | Where-Object { $_.Id -eq 'game-dvr' }).Status -eq 'GameDVR_Enabled=0'
+    )
+    if ($windowsReady) {
+        $cards.Add((New-Card -Area 'Windows Gaming Settings' -Status 'Good' -Meaning 'Windows graphics, Game Mode, and capture settings match the gaming baseline.' -Action 'No action needed.' -Risk 'None.' -UndoPath 'Not required.' -Details (($windows | ForEach-Object { "$($_.Name): $($_.Evidence)" }) -join "`r`n")))
+    } else {
+        $cards.Add((New-Card -Area 'Windows Gaming Settings' -Status 'Review' -Meaning 'One or more Windows gaming settings are outside the selected baseline or could not be read.' -Action 'Review details before considering a backed-up change.' -Risk 'Medium-low if changed later; this audit is read-only.' -UndoPath 'Future write actions must export the affected registry keys first.' -Details (($windows | ForEach-Object { "$($_.Name): $($_.Evidence)" }) -join "`r`n")))
+    }
 
     $rtssState = Test-RTSS240Baseline
     if ($ProfileId -eq 'halo.infinite') {
@@ -662,15 +702,21 @@ function Convert-AuditToGuidedCards {
         }
     }
 
+    $sonar = Get-SonarState
+    if ($sonar.Available) {
+        $cards.Add((New-Card -Area 'Audio Routing' -Status 'Good' -Meaning 'SteelSeries Sonar is available through its app process or virtual audio device.' -Action 'No action needed unless routing sounds wrong.' -Risk 'None.' -UndoPath 'Not required.' -Details $sonar.Detail))
+    } else {
+        $cards.Add((New-Card -Area 'Audio Routing' -Status 'Review' -Meaning 'Sonar was not detected as a running app or virtual audio device. This is fine if you do not use Sonar.' -Action 'Open SteelSeries GG only if Sonar is part of this profile.' -Risk 'Low.' -UndoPath 'Close SteelSeries GG.' -Details $sonar.Detail))
+    }
+
     $tools = @(
         "RTSS running=$(Test-ProcessRunning -Name 'RTSS')",
         "MSI Afterburner running=$(Test-ProcessRunning -Name 'MSIAfterburner')",
-        "SteelSeries GG running=$(Test-ProcessRunning -Name 'SteelSeriesGG')",
         "Flydigi app running=$(Test-ProcessRunning -Name 'FlydigiSpaceStation')",
         "CapFrameX available=$(Test-CommandAvailable -Name 'CapFrameX.exe')",
         "PresentMon available=$(Test-CommandAvailable -Name 'PresentMon.exe')"
     )
-    $cards.Add((New-Card -Area 'Session Apps' -Status 'Review' -Meaning 'Optional session apps were checked. Missing RTSS, Sonar, Flydigi, CapFrameX, or PresentMon will not crash GPTOPT.' -Action 'Open only the apps you intentionally use for this session.' -Risk 'Low. This starts existing user tools only.' -UndoPath 'Close the app you opened.' -Details ($tools -join "`r`n")))
+    $cards.Add((New-Card -Area 'Optional Session Tools' -Status 'Good' -Meaning 'Optional tools were checked without treating missing apps as a readiness failure.' -Action 'Open only the tools you intentionally use for this session.' -Risk 'Low.' -UndoPath 'Close the app you opened.' -Details ($tools -join "`r`n")))
 
     return @($cards.ToArray())
 }
@@ -703,7 +749,7 @@ function Get-RecommendedActionQueue {
     )
 
     $items = New-Object System.Collections.Generic.List[object]
-    if (@($Cards | Where-Object { $_.Area -eq 'Windows Reboot State' -and $_.Status -eq 'Review' }).Count -gt 0) {
+    if (@($Cards | Where-Object { $_.Area -eq 'Windows Reboot State' -and $_.Details -match 'Classification=Servicing' }).Count -gt 0) {
         $items.Add((New-ActionItem -Name 'Finish Pending Reboot' -WhatChanges 'Nothing inside GPTOPT. You decide when to reboot Windows.' -WhyItMatters 'A pending reboot can make benchmark results and driver state inconsistent.' -Risk 'Low' -BackupUndo 'No GPTOPT backup required because GPTOPT does not start the reboot.' -RequiresReboot $true))
     }
 
