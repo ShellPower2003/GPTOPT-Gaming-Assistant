@@ -174,7 +174,16 @@ function Test-RTSS240Baseline {
 
     $text = Get-Content -Raw -LiteralPath $path -ErrorAction SilentlyContinue
     $hasCap = $text -match '(?im)^\s*FramerateLimit\s*=\s*240\s*$'
-    $detectLevelTwo = $text -match '(?im)^\s*ApplicationDetectionLevel\s*=\s*2\s*
+    $detectLevelTwo = $text -match '(?im)^\s*ApplicationDetectionLevel\s*=\s*2\s*$'
+
+    [pscustomobject]@{
+        Found = $true
+        Ready = ($hasCap -and $detectLevelTwo)
+        Detail = "Profile=$path; FramerateLimit240=$hasCap; ApplicationDetectionLevel2=$detectLevelTwo"
+    }
+}
+
+function New-Card {
     param(
         [string]$Area,
         [ValidateSet('Good', 'Review', 'Fix')]
