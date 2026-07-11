@@ -31,11 +31,12 @@ $groups = @(
   @{Name='USB/Controller'; Log='System'; Providers='Kernel-PnP','USBHUB3','Microsoft-Windows-DriverFrameworks-UserMode'; Ids=@(2003,2100,2102,219)},
   @{Name='Application Crashes'; Log='Application'; Providers='Application Error','Windows Error Reporting'; Ids=@(1000,1001)}
 )
-foreach($g in $groups){
+$results = foreach($g in $groups){
   $items=Get-WinEvent -FilterHashtable @{LogName=$g.Log;StartTime=$start;Level=1,2,3} -ErrorAction SilentlyContinue |
     Where-Object { ($g.Providers -contains $_.ProviderName) -or ($g.Ids.Count -gt 0 -and $g.Ids -contains $_.Id) }
   [pscustomobject]@{Category=$g.Name;Count=@($items).Count;Latest=(@($items)|Sort-Object TimeCreated -Descending|Select-Object -First 1 -ExpandProperty TimeCreated)}
-} | ConvertTo-Csv -NoTypeInformation");
+}
+$results | ConvertTo-Csv -NoTypeInformation");
         report.AppendLine("EVENT CLASSIFICATION (LAST 72 HOURS)");
         report.AppendLine(string.IsNullOrWhiteSpace(events) ? "No matching critical categories found." : events.Trim());
         report.AppendLine();
