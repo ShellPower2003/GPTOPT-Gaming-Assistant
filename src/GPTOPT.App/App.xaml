@@ -1,0 +1,18 @@
+<Application x:Class="GPTOPT.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+  <Application.Resources>
+    <SolidColorBrush x:Key="PanelBrush" Color="#171A20" />
+    <SolidColorBrush x:Key="CardBrush" Color="#20252E" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#55C2FF" />
+    <Style TargetType="Button">
+      <Setter Property="Padding" Value="16,9" />
+      <Setter Property="Margin" Value="0,0,10,10" />
+      <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+      <Setter Property="Foreground" Value="#081018" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </Application.Resources>
+</Application>
