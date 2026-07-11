@@ -7,7 +7,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>GPTOPT</AssemblyName>
     <RootNamespace>GPTOPT.App</RootNamespace>
-    <ApplicationIcon>Assets\gptopt.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
