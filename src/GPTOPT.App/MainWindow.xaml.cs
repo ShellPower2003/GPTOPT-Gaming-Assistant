@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using Microsoft.Win32;
 using GPTOPT.App.Models;
 using GPTOPT.App.Services;
 
@@ -12,6 +13,9 @@ public partial class MainWindow : Window
     private readonly AuditService _auditService = new();
     private readonly RecommendationService _recommendationService = new();
     private readonly OptimizationService _optimizationService = new();
+    private readonly RollbackService _rollbackService = new();
+    private readonly DiagnosticsService _diagnosticsService = new();
+    private readonly PerformanceComparisonService _comparisonService = new();
     private List<OptimizationRecommendation> _recommendations = [];
 
     public MainWindow()
@@ -164,7 +168,7 @@ public partial class MainWindow : Window
         if (firstDiagnostic is not null) RecommendationList.SelectedItem = firstDiagnostic;
         UpdateSelectionCount();
         StatusText.Text = "Stability Review highlights diagnostics without automatically changing Windows.";
-        StatusDetailText.Text = "Use Device Manager, Event Viewer, and audit history to identify the cause";
+        StatusDetailText.Text = "Run Targeted Diagnostics to identify the device or event category";
     }
 
     private async void ApplySelected_Click(object sender, RoutedEventArgs e)
@@ -213,6 +217,117 @@ public partial class MainWindow : Window
         StatusText.Text = "Selection cleared.";
     }
 
+    private async void OpenRollbackManager_Click(object sender, RoutedEventArgs e)
+    {
+        var snapshots = _rollbackService.GetSnapshots();
+        if (snapshots.Count == 0)
+        {
+            MessageBox.Show("No rollback snapshots exist yet.", "GPTOPT Rollback", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var selected = SelectRollbackSnapshot(snapshots);
+        if (selected is null) return;
+        var confirm = MessageBox.Show($"Restore this snapshot?\n\n{Path.GetFileName(selected)}\n\nAdministrator approval may be required. GPTOPT will not reboot automatically.", "Confirm rollback", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        AuditProgress.IsIndeterminate = true;
+        try
+        {
+            var progress = new Progress<string>(message => StatusText.Text = message);
+            var result = await _rollbackService.RestoreAsync(selected, progress);
+            StatusText.Text = result;
+            StatusDetailText.Text = "Run Verify Changes to validate the rollback";
+            MessageBox.Show(result, "GPTOPT Rollback", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "GPTOPT Rollback Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            AuditProgress.IsIndeterminate = false;
+            AuditProgress.Value = 100;
+        }
+    }
+
+    private string? SelectRollbackSnapshot(IReadOnlyList<string> snapshots)
+    {
+        var window = new Window
+        {
+            Title = "GPTOPT Rollback Manager",
+            Width = 620,
+            Height = 420,
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(9, 13, 20)),
+            Foreground = System.Windows.Media.Brushes.White
+        };
+        var grid = new Grid { Margin = new Thickness(16) };
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var title = new TextBlock { Text = "Choose a rollback snapshot", FontSize = 22, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 12) };
+        var list = new ListBox { ItemsSource = snapshots.Select(Path.GetFileName), SelectedIndex = 0, Background = System.Windows.Media.Brushes.Black, Foreground = System.Windows.Media.Brushes.White };
+        var restore = new Button { Content = "Restore Selected", Padding = new Thickness(16, 8, 16, 8), HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
+        restore.Click += (_, _) => window.DialogResult = true;
+        Grid.SetRow(title, 0); Grid.SetRow(list, 1); Grid.SetRow(restore, 2);
+        grid.Children.Add(title); grid.Children.Add(list); grid.Children.Add(restore); window.Content = grid;
+        return window.ShowDialog() == true && list.SelectedIndex >= 0 ? snapshots[list.SelectedIndex] : null;
+    }
+
+    private async void RunTargetedDiagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        AuditProgress.IsIndeterminate = true;
+        StatusDetailText.Text = "Classifying devices, events, controller path, and reboot sources";
+        try
+        {
+            var progress = new Progress<string>(message => StatusText.Text = message);
+            var report = await _diagnosticsService.BuildReportAsync(progress);
+            new TextReportWindow("GPTOPT Targeted Diagnostics", report) { Owner = this }.ShowDialog();
+            StatusText.Text = "Targeted diagnostics complete.";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "GPTOPT Diagnostics Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            AuditProgress.IsIndeterminate = false;
+            AuditProgress.Value = 100;
+        }
+    }
+
+    private void CompareCaptures_Click(object sender, RoutedEventArgs e)
+    {
+        var before = PickCsv("Select BEFORE capture CSV");
+        if (before is null) return;
+        var after = PickCsv("Select AFTER capture CSV");
+        if (after is null) return;
+        try
+        {
+            var report = _comparisonService.Compare(before, after);
+            new TextReportWindow("GPTOPT Before / After Comparison", report) { Owner = this }.ShowDialog();
+            StatusText.Text = "Performance captures compared.";
+            StatusDetailText.Text = "Use repeated equivalent runs before keeping or rolling back a change";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "GPTOPT Comparison Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private string? PickCsv(string title)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = title,
+            Filter = "Performance CSV (*.csv)|*.csv|All files (*.*)|*.*",
+            Multiselect = false
+        };
+        return dialog.ShowDialog(this) == true ? dialog.FileName : null;
+    }
+
     private async void LocalAuditButton_Click(object sender, RoutedEventArgs e) => await RunAuditAsync(false);
     private async void PublishAuditButton_Click(object sender, RoutedEventArgs e) => await RunAuditAsync(true);
     private async void VerifyChanges_Click(object sender, RoutedEventArgs e) => await RunAuditAsync(false);
@@ -228,12 +343,6 @@ public partial class MainWindow : Window
     }
 
     private void OpenAuditStore_Click(object sender, RoutedEventArgs e) => OpenFolder(_auditService.AuditRoot);
-
-    private void OpenRollbackFolder_Click(object sender, RoutedEventArgs e)
-    {
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GPTOPT", "State");
-        OpenFolder(path);
-    }
 
     private void HistoryList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
@@ -263,6 +372,7 @@ public partial class MainWindow : Window
     private void OpenDeviceManager_Click(object sender, RoutedEventArgs e) => StartUtility("devmgmt.msc");
     private void OpenEventViewer_Click(object sender, RoutedEventArgs e) => StartUtility("eventvwr.msc");
     private void OpenWindowsUpdate_Click(object sender, RoutedEventArgs e) => StartUtility("ms-settings:windowsupdate");
+    private void OpenControllerCalibration_Click(object sender, RoutedEventArgs e) => StartUtility("control.exe", "joy.cpl");
 
     private void OpenNvidiaApp_Click(object sender, RoutedEventArgs e)
     {
