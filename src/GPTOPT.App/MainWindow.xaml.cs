@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using GPTOPT.App.Models;
 using GPTOPT.App.Services;
 
@@ -24,12 +25,16 @@ public partial class MainWindow : Window
         var report = _auditService.LoadLatest();
         if (report is null)
         {
-            PlatformText.Text = "No audit found. Run a local or published audit.";
+            PlatformText.Text = "No audit found. Select Check PC to build the first system profile.";
             GamingText.Text = DeviceText.Text = HealthText.Text = string.Empty;
             HistoryList.ItemsSource = _auditService.GetHistory();
-            AuditIdText.Text = "No audit selected";
+            AuditIdText.Text = "No audit loaded";
             RecommendationList.ItemsSource = null;
-            StatusText.Text = "Run an audit to generate recommendations.";
+            HealthGradeText.Text = "--";
+            HealthSummaryText.Text = "Run an audit to calculate status";
+            SelectionCountText.Text = "0 selected";
+            StatusText.Text = "Run an audit to generate explained recommendations.";
+            StatusDetailText.Text = "Waiting for first system check";
             return;
         }
 
@@ -38,18 +43,42 @@ public partial class MainWindow : Window
         DeviceText.Text = $"Flydigi detected: {report.Devices.FlydigiDetected}\nNVIDIA driver: {report.Devices.NvidiaDriver}\nWired adapters: {report.Devices.ActiveWiredAdapters}\nWi-Fi adapters: {report.Devices.ActiveWifiAdapters}\nRunning: {string.Join(", ", report.Devices.GptoptProcesses)}";
         HealthText.Text = $"System errors (72h): {report.Health.SystemErrorCount}\nApplication errors (72h): {report.Health.ApplicationErrorCount}\nProblem devices: {report.Health.ProblemDeviceCount}\nPending reboot: {report.Health.PendingRebootCount}\nSystem drive free: {report.Health.SystemDriveFreeGb:0.#} GB";
         HistoryList.ItemsSource = _auditService.GetHistory();
-        AuditIdText.Text = $"Latest: {report.AuditId}\nCollected UTC: {report.CollectedUtc}";
+        AuditIdText.Text = $"{report.AuditId}\n{report.CollectedUtc}";
+
+        var score = CalculateHealthScore(report);
+        HealthGradeText.Text = score.ToString();
+        HealthSummaryText.Text = score >= 90 ? "Strong gaming baseline" : score >= 75 ? "Good, with items to review" : score >= 60 ? "Needs attention" : "Action recommended";
+        HealthGradeText.Foreground = score >= 90
+            ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(115, 214, 160))
+            : score >= 75
+                ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 203, 107))
+                : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 126, 126));
 
         _recommendations = _recommendationService.Build(report).ToList();
-        RecommendationList.ItemsSource = _recommendations;
-        RecommendationList.SelectedIndex = _recommendations.Count > 0 ? 0 : -1;
-        StatusText.Text = $"Loaded {_recommendations.Count} explained recommendation(s) from {report.AuditId}.";
+        ApplyRecommendationFilter();
+        RecommendationList.SelectedIndex = RecommendationList.Items.Count > 0 ? 0 : -1;
+        UpdateSelectionCount();
+        StatusText.Text = $"Loaded {_recommendations.Count} explained recommendation(s).";
+        StatusDetailText.Text = $"Latest audit: {report.AuditId}";
+    }
+
+    private static int CalculateHealthScore(AuditReport report)
+    {
+        var score = 100;
+        score -= Math.Min(report.Health.SystemErrorCount, 10);
+        score -= Math.Min(report.Health.ApplicationErrorCount / 3, 10);
+        score -= report.Health.ProblemDeviceCount * 8;
+        score -= report.Health.PendingRebootCount * 5;
+        if (!report.Devices.FlydigiDetected) score -= 5;
+        if (report.Devices.ActiveWiredAdapters == 0) score -= 5;
+        return Math.Clamp(score, 0, 100);
     }
 
     private async Task RunAuditAsync(bool publish)
     {
         LocalAuditButton.IsEnabled = PublishAuditButton.IsEnabled = false;
         AuditProgress.IsIndeterminate = true;
+        StatusDetailText.Text = publish ? "Collecting and publishing sanitized summary" : "Collecting private local audit";
         var progress = new Progress<string>(message => StatusText.Text = message);
         try
         {
@@ -60,6 +89,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = ex.Message;
+            StatusDetailText.Text = "Audit failed";
             MessageBox.Show(ex.Message, "GPTOPT Audit Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
@@ -85,7 +115,25 @@ public partial class MainWindow : Window
         TargetStateText.Text = item.TargetState;
         WhyText.Text = item.Why;
         HowText.Text = item.How;
-        SafetyText.Text = $"Can apply: {item.CanApply}   |   Administrator: {item.RequiresAdmin}   |   Reboot: {item.RequiresReboot}\nGPTOPT creates a rollback snapshot before applying selected supported changes.";
+        SafetyText.Text = $"Can apply: {YesNo(item.CanApply)}   •   Administrator: {YesNo(item.RequiresAdmin)}   •   Reboot: {YesNo(item.RequiresReboot)}\nA rollback snapshot is created before supported changes are applied.";
+    }
+
+    private static string YesNo(bool value) => value ? "Yes" : "No";
+
+    private void ApplyRecommendationFilter()
+    {
+        var category = (CategoryFilter.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "All";
+        var filtered = category == "All"
+            ? _recommendations
+            : _recommendations.Where(x => string.Equals(x.Category, category, StringComparison.OrdinalIgnoreCase)).ToList();
+        RecommendationList.ItemsSource = filtered;
+    }
+
+    private void UpdateSelectionCount()
+    {
+        var count = _recommendations.Count(x => x.IsSelected && x.CanApply);
+        SelectionCountText.Text = count == 1 ? "1 selected" : $"{count} selected";
+        ApplySelectedButton.IsEnabled = count > 0;
     }
 
     private async void ApplySelected_Click(object sender, RoutedEventArgs e)
@@ -97,29 +145,32 @@ public partial class MainWindow : Window
             return;
         }
 
-        var summary = string.Join("\n", selected.Select(x => $"• {x.Title} — Risk: {x.Risk}; Reboot: {x.RequiresReboot}"));
-        var confirm = MessageBox.Show($"GPTOPT will apply these selected changes:\n\n{summary}\n\nA rollback snapshot will be created first. Continue?", "Confirm selected changes", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        var summary = string.Join("\n", selected.Select(x => $"• {x.Title} — Risk: {x.Risk}; Admin: {YesNo(x.RequiresAdmin)}; Reboot: {YesNo(x.RequiresReboot)}"));
+        var confirm = MessageBox.Show($"Review the selected changes:\n\n{summary}\n\nGPTOPT will create a rollback snapshot first. Continue?", "Review and apply", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (confirm != MessageBoxResult.Yes) return;
 
         ApplySelectedButton.IsEnabled = false;
         AuditProgress.IsIndeterminate = true;
+        StatusDetailText.Text = "Creating rollback snapshot and applying selected actions";
         try
         {
             var progress = new Progress<string>(message => StatusText.Text = message);
             var result = await _optimizationService.ApplyAsync(selected, progress);
-            StatusText.Text = result + " Run a new audit to verify the resulting state.";
-            MessageBox.Show(result, "GPTOPT", MessageBoxButton.OK, MessageBoxImage.Information);
+            StatusText.Text = result;
+            StatusDetailText.Text = "Run Verify Changes to confirm the new state";
+            MessageBox.Show(result + "\n\nUse Verify Changes to re-audit the PC.", "GPTOPT", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             StatusText.Text = ex.Message;
+            StatusDetailText.Text = "Apply failed; rollback data was preserved when available";
             MessageBox.Show(ex.Message, "GPTOPT Apply Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
             AuditProgress.IsIndeterminate = false;
             AuditProgress.Value = 100;
-            ApplySelectedButton.IsEnabled = true;
+            UpdateSelectionCount();
         }
     }
 
@@ -128,25 +179,52 @@ public partial class MainWindow : Window
         foreach (var item in _recommendations)
             item.IsSelected = item.CanApply && item.Risk == "Low" && !item.RequiresAdmin;
         RecommendationList.Items.Refresh();
-        StatusText.Text = "Selected low-risk, non-administrator defaults only.";
+        UpdateSelectionCount();
+        StatusText.Text = "Selected low-risk, non-administrator defaults.";
+        StatusDetailText.Text = "Review each selected item before applying";
     }
 
     private void ClearSelection_Click(object sender, RoutedEventArgs e)
     {
         foreach (var item in _recommendations) item.IsSelected = false;
         RecommendationList.Items.Refresh();
+        UpdateSelectionCount();
         StatusText.Text = "Selection cleared.";
     }
 
     private async void LocalAuditButton_Click(object sender, RoutedEventArgs e) => await RunAuditAsync(false);
     private async void PublishAuditButton_Click(object sender, RoutedEventArgs e) => await RunAuditAsync(true);
+    private async void VerifyChanges_Click(object sender, RoutedEventArgs e) => await RunAuditAsync(false);
     private void RefreshButton_Click(object sender, RoutedEventArgs e) => RefreshDashboard();
     private void RecommendationList_SelectionChanged(object sender, SelectionChangedEventArgs e) => ShowRecommendation(RecommendationList.SelectedItem as OptimizationRecommendation);
+    private void RecommendationCheckBox_Click(object sender, RoutedEventArgs e) => UpdateSelectionCount();
+
+    private void CategoryFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        ApplyRecommendationFilter();
+        RecommendationList.SelectedIndex = RecommendationList.Items.Count > 0 ? 0 : -1;
+    }
 
     private void OpenAuditStore_Click(object sender, RoutedEventArgs e)
     {
         Directory.CreateDirectory(_auditService.AuditRoot);
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{_auditService.AuditRoot}\"") { UseShellExecute = true });
+    }
+
+    private void OpenRollbackFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GPTOPT", "State");
+        Directory.CreateDirectory(path);
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+    }
+
+    private void HistoryList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (HistoryList.SelectedItem is not string auditId) return;
+        var path = Path.Combine(_auditService.AuditRoot, auditId);
+        if (Directory.Exists(path))
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
     }
 
     private void OpenPresentMon_Click(object sender, RoutedEventArgs e)
