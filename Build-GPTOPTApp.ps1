@@ -10,6 +10,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'Continue'
 $Root = Split-Path -Parent $PSCommandPath
 $Project = Join-Path $Root 'src\GPTOPT.App\GPTOPT.App.csproj'
+$Xaml = Join-Path $Root 'src\GPTOPT.App\MainWindow.xaml'
 $Output = Join-Path $Root 'dist\win-x64'
 
 function Set-BuildProgress([int]$Percent,[string]$Status) {
@@ -21,6 +22,18 @@ $dotnet = Get-Command dotnet.exe -ErrorAction Stop
 $version = & $dotnet.Source --version
 if ([version]($version.Split('-')[0]) -lt [version]'8.0.0') {
     throw ".NET SDK 8 or newer is required. Found $version"
+}
+
+Set-BuildProgress 10 'Validating application XAML'
+if (-not (Test-Path -LiteralPath $Xaml)) { throw "Main window XAML not found: $Xaml" }
+$xamlText = Get-Content -LiteralPath $Xaml -Raw
+$xamlText = $xamlText.Replace('Content="Review & Apply Selected"','Content="Review &amp; Apply Selected"')
+Set-Content -LiteralPath $Xaml -Value $xamlText -Encoding UTF8
+try {
+    [xml](Get-Content -LiteralPath $Xaml -Raw) | Out-Null
+}
+catch {
+    throw "MainWindow.xaml is not valid XML: $($_.Exception.Message)"
 }
 
 Set-BuildProgress 20 'Restoring dependencies'
