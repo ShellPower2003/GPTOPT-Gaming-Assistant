@@ -23,7 +23,7 @@
       <DockPanel>
         <StackPanel DockPanel.Dock="Left">
           <StackPanel Orientation="Horizontal"><TextBlock Text="GPTOPT" FontSize="30" FontWeight="Bold"/><Border Background="#17345A" CornerRadius="12" Padding="9,3" Margin="12,5,0,0"><TextBlock Text="NATIVE PREVIEW" Foreground="#8FC1FF" FontSize="11" FontWeight="SemiBold"/></Border></StackPanel>
-          <TextBlock Text="Check, understand, choose, apply, and verify gaming changes without mystery tweaks." Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0"/>
+          <TextBlock Text="Check, understand, choose, apply, roll back, and verify gaming changes." Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0"/>
         </StackPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
           <Button x:Name="LocalAuditButton" Content="Check PC" Click="LocalAuditButton_Click"/>
@@ -46,7 +46,8 @@
           <TextBlock Text="LATEST LOCAL AUDIT" Foreground="{StaticResource MutedBrush}" FontSize="11" FontWeight="SemiBold"/>
           <TextBlock x:Name="AuditIdText" Text="No audit loaded" TextWrapping="Wrap" Margin="0,8,0,16"/>
           <Button Content="Verify Changes" Click="VerifyChanges_Click" HorizontalAlignment="Stretch"/>
-          <Button Content="Open Rollback Folder" Click="OpenRollbackFolder_Click" HorizontalAlignment="Stretch"/>
+          <Button Content="Rollback Manager" Click="OpenRollbackManager_Click" HorizontalAlignment="Stretch"/>
+          <Button Content="Open Audit Store" Click="OpenAuditStore_Click" HorizontalAlignment="Stretch"/>
         </StackPanel>
       </Border>
 
@@ -79,7 +80,7 @@
 
         <TabItem Header="History"><Grid Margin="18"><Grid.ColumnDefinitions><ColumnDefinition Width="350"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><ListBox x:Name="HistoryList" Grid.Column="0" Background="#0B111B" Foreground="White" MouseDoubleClick="HistoryList_MouseDoubleClick"/><StackPanel Grid.Column="1" Margin="20,0,0,0"><TextBlock Text="Persistent local audit history" FontSize="24" FontWeight="Bold"/><TextBlock Text="Double-click an audit to open its folder. Local history is authoritative; published summaries can lag until Check + Publish is run." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,16"/><Button Content="Open Audit Store" HorizontalAlignment="Left" Click="OpenAuditStore_Click"/></StackPanel></Grid></TabItem>
 
-        <TabItem Header="Tools &amp; Measure"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="24"><TextBlock Text="Diagnostics and measurement" FontSize="25" FontWeight="Bold"/><TextBlock Text="Open focused Windows and vendor tools. GPTOPT should guide and interpret them rather than duplicate every utility badly." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,18"/><WrapPanel><Button Content="PresentMon" Width="170" Click="OpenPresentMon_Click"/><Button Content="Task Manager" Width="170" Click="OpenTaskManager_Click"/><Button Content="Device Manager" Width="170" Click="OpenDeviceManager_Click"/><Button Content="Event Viewer" Width="170" Click="OpenEventViewer_Click"/><Button Content="Windows Update" Width="170" Click="OpenWindowsUpdate_Click"/><Button Content="NVIDIA App" Width="170" Click="OpenNvidiaApp_Click"/></WrapPanel><Border Background="#101722" CornerRadius="8" Padding="14" Margin="4,18,4,0"><TextBlock Text="Measurement rule: do not claim a tweak helped until before/after frame-time or latency data confirms it. Avoid RAM cleaners, blanket service disabling, and bulk driver updaters." TextWrapping="Wrap" Foreground="#C9D4E3"/></Border></StackPanel></ScrollViewer></TabItem>
+        <TabItem Header="Diagnose &amp; Measure"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="24"><TextBlock Text="Targeted diagnosis and proof" FontSize="25" FontWeight="Bold"/><TextBlock Text="Identify the device or event category causing the warning, test the controller path, and compare real before/after captures." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,18"/><WrapPanel><Button Content="Run Targeted Diagnostics" Width="210" Click="RunTargetedDiagnostics_Click"/><Button Content="Compare Capture CSVs" Width="200" Click="CompareCaptures_Click"/><Button Content="Controller Calibration" Width="190" Click="OpenControllerCalibration_Click"/><Button Content="PresentMon" Width="160" Click="OpenPresentMon_Click"/><Button Content="Task Manager" Width="160" Click="OpenTaskManager_Click"/><Button Content="Device Manager" Width="160" Click="OpenDeviceManager_Click"/><Button Content="Event Viewer" Width="160" Click="OpenEventViewer_Click"/><Button Content="Windows Update" Width="160" Click="OpenWindowsUpdate_Click"/><Button Content="NVIDIA App" Width="160" Click="OpenNvidiaApp_Click"/></WrapPanel><Border Background="#101722" CornerRadius="8" Padding="14" Margin="4,18,4,0"><TextBlock Text="Measurement rule: keep only changes that improve repeatable frame-time, latency, stability, or input behavior. Mixed results are not a win." TextWrapping="Wrap" Foreground="#C9D4E3"/></Border></StackPanel></ScrollViewer></TabItem>
       </TabControl>
     </Grid>
 
