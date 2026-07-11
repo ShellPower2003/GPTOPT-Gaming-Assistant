@@ -28,9 +28,16 @@ function Get-Sha256Text {
     finally { $sha.Dispose() }
 }
 
-function Select-CimSafe {
+function ConvertTo-PlainRecords {
     param([object[]]$InputObject,[string[]]$Property)
-    @($InputObject | Select-Object -Property $Property)
+    @(
+        foreach($item in @($InputObject)) {
+            if($null -eq $item){ continue }
+            $record=[ordered]@{}
+            foreach($name in $Property){ $record[$name]=$item.$name }
+            [pscustomobject]$record
+        }
+    )
 }
 
 function ConvertTo-SafeMarkdown {
@@ -58,6 +65,7 @@ function ConvertTo-SafeMarkdown {
         "- MPO override: $($Report.gaming.mpo_override)",'',
         '## Devices and software',
         "- Flydigi/Vader detected: $($Report.devices.flydigi_detected)",
+        "- Flydigi evidence: $($Report.devices.flydigi_evidence -join ', ')",
         "- NVIDIA driver: $($Report.devices.nvidia_driver)",
         "- Active wired adapters: $($Report.devices.active_wired_adapters)",
         "- Active Wi-Fi adapters: $($Report.devices.active_wifi_adapters)",
@@ -66,7 +74,9 @@ function ConvertTo-SafeMarkdown {
         "- System critical/error events, last 72h: $($Report.health.system_error_count)",
         "- Application critical/error events, last 72h: $($Report.health.application_error_count)",
         "- Problem devices: $($Report.health.problem_device_count)",
+        "- Problem device classes: $($Report.health.problem_device_classes -join ', ')",
         "- Pending reboot indicators: $($Report.health.pending_reboot_count)",
+        "- Pending reboot sources: $($Report.health.pending_reboot_sources -join ', ')",
         "- System drive free: $($Report.health.system_drive_free_gb) GB",'',
         'Raw paths, account names, addresses, identifiers, serial numbers, and event contents are intentionally excluded.'
     ) -join "`n"
@@ -84,10 +94,14 @@ function Publish-LatestAuditIssue {
     $temp=Join-Path $env:TEMP ("gptopt-audit-{0}.md" -f [guid]::NewGuid().ToString('N'))
     try {
         Set-Content -LiteralPath $temp -Value $Body -Encoding UTF8
-        if($existing){ & $gh.Source issue edit $existing.number --repo $Repo --body-file $temp; if($LASTEXITCODE -ne 0){throw 'Unable to update audit issue.'}; return 'updated' }
-        & $gh.Source issue create --repo $Repo --title $Title --body-file $temp
+        if($existing){
+            & $gh.Source issue edit $existing.number --repo $Repo --body-file $temp
+            if($LASTEXITCODE -ne 0){throw 'Unable to update audit issue.'}
+            return (& $gh.Source issue view $existing.number --repo $Repo --json url --jq .url)
+        }
+        $url=& $gh.Source issue create --repo $Repo --title $Title --body-file $temp
         if($LASTEXITCODE -ne 0){throw 'Unable to create audit issue.'}
-        'created'
+        return $url
     } finally { Remove-Item $temp -Force -ErrorAction SilentlyContinue }
 }
 
@@ -119,40 +133,46 @@ $mpo=Get-RegValue 'HKLM:\SOFTWARE\Microsoft\Windows\Dwm' 'OverlayTestMode'
 
 Set-GPTOPTProgress 45 'Collecting devices and drivers'
 $pnp=@(Get-PnpDevice -ErrorAction SilentlyContinue)
-$flydigiIds='VID_045E&PID_028E|FLYDIGI_VADER4'
-$flydigi=( @($pnp | Where-Object { $_.FriendlyName -match 'Flydigi|Vader|Xbox Controller' -or $_.InstanceId -match $flydigiIds }).Count -gt 0 ) -or [bool](Get-Process GameControllerService -ErrorAction SilentlyContinue)
+$processes=@(Get-Process -ErrorAction SilentlyContinue)
+$known='RTSS','MSIAfterburner','CapFrameX','PresentMon','GameControllerService','SteelSeriesGG','HaloInfinite'
+$running=@($processes | Where-Object { $known -contains $_.ProcessName } | Select-Object -ExpandProperty ProcessName -Unique | Sort-Object)
+$flydigiEvidence=@()
+if(@($pnp | Where-Object { $_.FriendlyName -match 'Flydigi|Vader' }).Count -gt 0){$flydigiEvidence+='PnP name'}
+if(@($pnp | Where-Object { $_.InstanceId -match 'VID_045E&PID_028E|FLYDIGI_VADER4' }).Count -gt 0){$flydigiEvidence+='USB/HID ID'}
+if($running -contains 'GameControllerService'){$flydigiEvidence+='GameControllerService'}
+$flydigi=$flydigiEvidence.Count -gt 0
 $nvidia=Get-CimInstance Win32_PnPSignedDriver | Where-Object DeviceName -match 'NVIDIA.*(RTX|GeForce)' | Select-Object -First 1
 $net=@(Get-NetAdapter -ErrorAction SilentlyContinue)
 $wiredCount=@($net | Where-Object { $_.Status -eq 'Up' -and $_.Name -notmatch 'Wi-Fi|Wireless' }).Count
 $wifiCount=@($net | Where-Object { $_.Status -eq 'Up' -and $_.Name -match 'Wi-Fi|Wireless' }).Count
-$known='RTSS','MSIAfterburner','CapFrameX','PresentMon','GameControllerService','SteelSeriesGG','HaloInfinite'
-$running=@(Get-Process -ErrorAction SilentlyContinue | Where-Object { $known -contains $_.ProcessName } | Select-Object -ExpandProperty ProcessName -Unique | Sort-Object)
 
 Set-GPTOPTProgress 60 'Collecting health signals'
 $since=(Get-Date).AddHours(-72)
 $systemErrors=@(Get-WinEvent -FilterHashtable @{LogName='System';Level=1,2;StartTime=$since} -ErrorAction SilentlyContinue).Count
 $appErrors=@(Get-WinEvent -FilterHashtable @{LogName='Application';Level=1,2;StartTime=$since} -ErrorAction SilentlyContinue).Count
 $problem=@($pnp | Where-Object { $_.Status -notin 'OK','Unknown' })
-$pending=0
-if(Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'){$pending++}
-if(Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'){$pending++}
-try{if((Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction Stop).PendingFileRenameOperations){$pending++}}catch{}
+$pendingSources=@()
+if(Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'){$pendingSources+='Windows Update'}
+if(Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'){$pendingSources+='Component Servicing'}
+try{if((Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction Stop).PendingFileRenameOperations){$pendingSources+='Pending file rename'}}catch{}
 $systemDrive=Get-CimInstance Win32_LogicalDisk -Filter ("DeviceID='{0}'" -f $env:SystemDrive)
 
 Set-GPTOPTProgress 72 'Writing private local snapshot'
 $private=[ordered]@{
  audit_id=$auditId; collected_utc=(Get-Date).ToUniversalTime().ToString('o')
- computer=Select-CimSafe $computer @('Manufacturer','Model','TotalPhysicalMemory','NumberOfLogicalProcessors','HypervisorPresent')
- operating_system=Select-CimSafe $os @('Caption','Version','BuildNumber','OSArchitecture','LastBootUpTime','FreePhysicalMemory')
- cpu=Select-CimSafe $cpu @('Name','NumberOfCores','NumberOfLogicalProcessors','MaxClockSpeed','CurrentClockSpeed')
- video_controllers=Select-CimSafe $gpus @('Name','DriverVersion','AdapterRAM','CurrentHorizontalResolution','CurrentVerticalResolution','CurrentRefreshRate')
- bios=Select-CimSafe $bios @('Manufacturer','SMBIOSBIOSVersion','ReleaseDate')
- physical_memory=Select-CimSafe $memory @('Manufacturer','PartNumber','Capacity','Speed','ConfiguredClockSpeed')
+ computer=ConvertTo-PlainRecords $computer @('Manufacturer','Model','TotalPhysicalMemory','NumberOfLogicalProcessors','HypervisorPresent')
+ operating_system=ConvertTo-PlainRecords $os @('Caption','Version','BuildNumber','OSArchitecture','LastBootUpTime','FreePhysicalMemory')
+ cpu=ConvertTo-PlainRecords $cpu @('Name','NumberOfCores','NumberOfLogicalProcessors','MaxClockSpeed','CurrentClockSpeed')
+ video_controllers=ConvertTo-PlainRecords $gpus @('Name','DriverVersion','AdapterRAM','CurrentHorizontalResolution','CurrentVerticalResolution','CurrentRefreshRate')
+ bios=ConvertTo-PlainRecords $bios @('Manufacturer','SMBIOSBIOSVersion','ReleaseDate')
+ physical_memory=ConvertTo-PlainRecords $memory @('Manufacturer','PartNumber','Capacity','Speed','ConfiguredClockSpeed')
  power_plan=$activePower
- network_adapters=Select-CimSafe $net @('Name','InterfaceDescription','Status','LinkSpeed','DriverVersion')
- problem_devices=Select-CimSafe $problem @('Class','FriendlyName','Status','Problem')
+ network_adapters=ConvertTo-PlainRecords $net @('Name','InterfaceDescription','Status','LinkSpeed','DriverVersion')
+ problem_devices=ConvertTo-PlainRecords $problem @('Class','FriendlyName','Status','Problem')
+ pending_reboot_sources=$pendingSources
+ flydigi_evidence=$flydigiEvidence
 }
-$private | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $rawDir 'private-snapshot.json') -Encoding UTF8
+$private | ConvertTo-Json -Depth 8 -WarningAction SilentlyContinue | Set-Content (Join-Path $rawDir 'private-snapshot.json') -Encoding UTF8
 Get-CimInstance Win32_PnPSignedDriver | Select-Object DeviceName,DeviceClass,Manufacturer,DriverProviderName,DriverVersion,DriverDate,InfName | Export-Csv (Join-Path $rawDir 'signed-drivers.csv') -NoTypeInformation
 powercfg.exe /query | Set-Content (Join-Path $rawDir 'powercfg.txt') -Encoding UTF8
 
@@ -160,11 +180,11 @@ Set-GPTOPTProgress 82 'Building sanitized report'
 $displayText=if($display){"$($display.CurrentHorizontalResolution)x$($display.CurrentVerticalResolution) @ $($display.CurrentRefreshRate) Hz"}else{'Unavailable'}
 $text={param($v) if($null -eq $v){'Not set'}else{[string]$v}}
 $safe=[pscustomobject]@{
- schema_version=1; collector_version='0.3.1'; audit_id=$auditId; collected_utc=(Get-Date).ToUniversalTime().ToString('o'); machine_key=$machineKey
+ schema_version=1; collector_version='0.3.2'; audit_id=$auditId; collected_utc=(Get-Date).ToUniversalTime().ToString('o'); machine_key=$machineKey
  platform=[pscustomobject]@{windows=$os.Caption;build=$os.BuildNumber;bios=("{0} {1}" -f $bios.Manufacturer,$bios.SMBIOSBIOSVersion);cpu=$cpu.Name.Trim();gpu=(($gpus.Name)-join '; ');memory_gb=[math]::Round($memoryBytes/1GB,1);display=$displayText}
  gaming=[pscustomobject]@{power_plan=$activePower;game_mode=(& $text $gameMode);game_dvr=(& $text $gameDvr);hags=(& $text $hags);mpo_override=(& $text $mpo)}
- devices=[pscustomobject]@{flydigi_detected=$flydigi;nvidia_driver=$(if($nvidia){$nvidia.DriverVersion}else{'Not detected'});active_wired_adapters=$wiredCount;active_wifi_adapters=$wifiCount;gptopt_processes=$running}
- health=[pscustomobject]@{system_error_count=$systemErrors;application_error_count=$appErrors;problem_device_count=$problem.Count;pending_reboot_count=$pending;system_drive_free_gb=[math]::Round($systemDrive.FreeSpace/1GB,1)}
+ devices=[pscustomobject]@{flydigi_detected=$flydigi;flydigi_evidence=$flydigiEvidence;nvidia_driver=$(if($nvidia){$nvidia.DriverVersion}else{'Not detected'});active_wired_adapters=$wiredCount;active_wifi_adapters=$wifiCount;gptopt_processes=$running}
+ health=[pscustomobject]@{system_error_count=$systemErrors;application_error_count=$appErrors;problem_device_count=$problem.Count;problem_device_classes=@($problem.Class|Where-Object{$_}|Sort-Object -Unique);pending_reboot_count=$pendingSources.Count;pending_reboot_sources=$pendingSources;system_drive_free_gb=[math]::Round($systemDrive.FreeSpace/1GB,1)}
 }
 $safeJson=Join-Path $runDir 'GPTOPT-SanitizedReport.json'; $safeMd=Join-Path $runDir 'GPTOPT-SanitizedReport.md'
 $safe | ConvertTo-Json -Depth 6 | Set-Content $safeJson -Encoding UTF8
