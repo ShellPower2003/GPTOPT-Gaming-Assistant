@@ -1,17 +1,22 @@
 param(
-    [ValidateSet('gui','test')]
+    [ValidateSet('gui','legacy','test')]
     [string]$Mode = 'gui'
 )
 
-$ErrorActionPreference = 'Continue'
+$ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$HaloSightRoot = Join-Path $Root 'HaloSight'
-$HaloSightGui = Join-Path $HaloSightRoot 'scripts\HaloSightGUI.ps1'
-$SmokeTest = Join-Path $HaloSightRoot 'tests\smoke_test.ps1'
+$DesktopApp = Join-Path $Root 'Scripts\Invoke-GPTOPTDesktopApp.ps1'
+$HaloSightGui = Join-Path $Root 'HaloSight\scripts\HaloSightGUI.ps1'
+$SmokeTest = Join-Path $Root 'HaloSight\tests\smoke_test.ps1'
 
 switch($Mode){
     'gui' {
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $HaloSightGui
+        if (-not (Test-Path -LiteralPath $DesktopApp)) { throw "GPTOPT desktop application not found: $DesktopApp" }
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File $DesktopApp
+        exit $LASTEXITCODE
+    }
+    'legacy' {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File $HaloSightGui
         exit $LASTEXITCODE
     }
     'test' {
