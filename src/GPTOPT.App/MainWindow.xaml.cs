@@ -58,8 +58,11 @@ public partial class MainWindow : Window
         ApplyRecommendationFilter();
         RecommendationList.SelectedIndex = RecommendationList.Items.Count > 0 ? 0 : -1;
         UpdateSelectionCount();
-        StatusText.Text = $"Loaded {_recommendations.Count} explained recommendation(s).";
-        StatusDetailText.Text = $"Latest audit: {report.AuditId}";
+        var actionable = _recommendations.Count(x => x.CanApply);
+        StatusText.Text = actionable == 0
+            ? "No configuration changes are currently recommended. Review diagnostics or measure performance."
+            : $"Loaded {actionable} actionable change(s) and {_recommendations.Count - actionable} diagnostic item(s).";
+        StatusDetailText.Text = $"Latest local audit: {report.AuditId}";
     }
 
     private static int CalculateHealthScore(AuditReport report)
@@ -115,7 +118,9 @@ public partial class MainWindow : Window
         TargetStateText.Text = item.TargetState;
         WhyText.Text = item.Why;
         HowText.Text = item.How;
-        SafetyText.Text = $"Can apply: {YesNo(item.CanApply)}   •   Administrator: {YesNo(item.RequiresAdmin)}   •   Reboot: {YesNo(item.RequiresReboot)}\nA rollback snapshot is created before supported changes are applied.";
+        SafetyText.Text = item.CanApply
+            ? $"Can apply: Yes   •   Administrator: {YesNo(item.RequiresAdmin)}   •   Reboot: {YesNo(item.RequiresReboot)}\nA rollback snapshot is created before supported changes are applied."
+            : $"Diagnostic or guidance item   •   Reboot: {YesNo(item.RequiresReboot)}\nGPTOPT will not apply this automatically because the correct next step depends on evidence or user action.";
     }
 
     private static string YesNo(bool value) => value ? "Yes" : "No";
@@ -134,6 +139,32 @@ public partial class MainWindow : Window
         var count = _recommendations.Count(x => x.IsSelected && x.CanApply);
         SelectionCountText.Text = count == 1 ? "1 selected" : $"{count} selected";
         ApplySelectedButton.IsEnabled = count > 0;
+    }
+
+    private void SelectProfile(Func<OptimizationRecommendation, bool> selector, string status)
+    {
+        foreach (var item in _recommendations)
+            item.IsSelected = item.CanApply && selector(item);
+        RecommendationList.Items.Refresh();
+        UpdateSelectionCount();
+        StatusText.Text = status;
+        StatusDetailText.Text = "Review every selected action before applying";
+    }
+
+    private void SafeGamingProfile_Click(object sender, RoutedEventArgs e) =>
+        SelectProfile(item => item.Risk == "Low" && !item.RequiresAdmin && item.Category == "Windows Gaming",
+            "Safe Gaming Baseline selected only low-risk user-level gaming settings.");
+
+    private void StabilityProfile_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var item in _recommendations) item.IsSelected = false;
+        CategoryFilter.SelectedIndex = 0;
+        ApplyRecommendationFilter();
+        var firstDiagnostic = _recommendations.FirstOrDefault(x => x.Category is "Health" or "Devices");
+        if (firstDiagnostic is not null) RecommendationList.SelectedItem = firstDiagnostic;
+        UpdateSelectionCount();
+        StatusText.Text = "Stability Review highlights diagnostics without automatically changing Windows.";
+        StatusDetailText.Text = "Use Device Manager, Event Viewer, and audit history to identify the cause";
     }
 
     private async void ApplySelected_Click(object sender, RoutedEventArgs e)
@@ -174,16 +205,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SelectSafeDefaults_Click(object sender, RoutedEventArgs e)
-    {
-        foreach (var item in _recommendations)
-            item.IsSelected = item.CanApply && item.Risk == "Low" && !item.RequiresAdmin;
-        RecommendationList.Items.Refresh();
-        UpdateSelectionCount();
-        StatusText.Text = "Selected low-risk, non-administrator defaults.";
-        StatusDetailText.Text = "Review each selected item before applying";
-    }
-
     private void ClearSelection_Click(object sender, RoutedEventArgs e)
     {
         foreach (var item in _recommendations) item.IsSelected = false;
@@ -206,25 +227,53 @@ public partial class MainWindow : Window
         RecommendationList.SelectedIndex = RecommendationList.Items.Count > 0 ? 0 : -1;
     }
 
-    private void OpenAuditStore_Click(object sender, RoutedEventArgs e)
-    {
-        Directory.CreateDirectory(_auditService.AuditRoot);
-        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{_auditService.AuditRoot}\"") { UseShellExecute = true });
-    }
+    private void OpenAuditStore_Click(object sender, RoutedEventArgs e) => OpenFolder(_auditService.AuditRoot);
 
     private void OpenRollbackFolder_Click(object sender, RoutedEventArgs e)
     {
         var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GPTOPT", "State");
-        Directory.CreateDirectory(path);
-        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+        OpenFolder(path);
     }
 
     private void HistoryList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (HistoryList.SelectedItem is not string auditId) return;
-        var path = Path.Combine(_auditService.AuditRoot, auditId);
-        if (Directory.Exists(path))
-            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+        OpenFolder(Path.Combine(_auditService.AuditRoot, auditId));
+    }
+
+    private static void OpenFolder(string path)
+    {
+        Directory.CreateDirectory(path);
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+    }
+
+    private static void StartUtility(string fileName, string? arguments = null)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(fileName, arguments ?? string.Empty) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "GPTOPT Tool Launch", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
+    private void OpenTaskManager_Click(object sender, RoutedEventArgs e) => StartUtility("taskmgr.exe");
+    private void OpenDeviceManager_Click(object sender, RoutedEventArgs e) => StartUtility("devmgmt.msc");
+    private void OpenEventViewer_Click(object sender, RoutedEventArgs e) => StartUtility("eventvwr.msc");
+    private void OpenWindowsUpdate_Click(object sender, RoutedEventArgs e) => StartUtility("ms-settings:windowsupdate");
+
+    private void OpenNvidiaApp_Click(object sender, RoutedEventArgs e)
+    {
+        var candidates = new[]
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "NVIDIA Corporation", "NVIDIA app", "CEF", "NVIDIA app.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "NVIDIA Corporation", "NVIDIA app", "NVIDIA app.exe")
+        };
+        var path = candidates.FirstOrDefault(File.Exists);
+        if (path is null) MessageBox.Show("NVIDIA App was not found in a standard install location.", "GPTOPT", MessageBoxButton.OK, MessageBoxImage.Information);
+        else StartUtility(path);
     }
 
     private void OpenPresentMon_Click(object sender, RoutedEventArgs e)
@@ -235,11 +284,7 @@ public partial class MainWindow : Window
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PresentMon", "PresentMon.exe")
         };
         var path = candidates.FirstOrDefault(File.Exists);
-        if (path is null)
-        {
-            MessageBox.Show("PresentMon was not found in a standard install location.", "GPTOPT", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        if (path is null) MessageBox.Show("PresentMon was not found in a standard install location.", "GPTOPT", MessageBoxButton.OK, MessageBoxImage.Information);
+        else StartUtility(path);
     }
 }
