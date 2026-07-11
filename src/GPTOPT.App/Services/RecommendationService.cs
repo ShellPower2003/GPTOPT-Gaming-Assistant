@@ -8,38 +8,38 @@ public sealed class RecommendationService
     {
         var items = new List<OptimizationRecommendation>();
 
-        AddRegistryRecommendation(items, "game-mode", "Windows", "Enable Game Mode",
+        AddRegistryRecommendation(items, "game-mode", "Windows Gaming", "Enable Game Mode",
             report.Gaming.GameMode, "1",
             "Game Mode prioritizes the active game and reduces interference from some background activity.",
             "Sets HKCU\\Software\\Microsoft\\GameBar\\AllowAutoGameMode to 1.",
-            "Small consistency improvement", false, false);
+            "Small consistency improvement", false, false, "Low");
 
-        AddRegistryRecommendation(items, "game-dvr", "Windows", "Disable Game DVR background capture",
+        AddRegistryRecommendation(items, "game-dvr", "Windows Gaming", "Disable Game DVR background capture",
             report.Gaming.GameDvr, "0",
-            "Background capture can consume GPU, CPU and storage resources even when no recording is needed.",
+            "Background capture can consume GPU, CPU and storage resources when recording is not needed.",
             "Sets HKCU\\System\\GameConfigStore\\GameDVR_Enabled to 0.",
-            "Small latency and overhead reduction", false, false);
+            "Small overhead reduction", false, false, "Low");
 
         AddRegistryRecommendation(items, "hags", "Graphics", "Enable Hardware-accelerated GPU scheduling",
             report.Gaming.Hags, "2",
-            "HAGS moves portions of GPU scheduling into dedicated GPU hardware. On modern NVIDIA hardware it is commonly the preferred baseline, but it should still be benchmarked.",
+            "HAGS moves portions of GPU scheduling into dedicated GPU hardware. It is a reasonable modern baseline on current NVIDIA hardware, but its effect must be verified with frame-time data.",
             "Sets HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers\\HwSchMode to 2.",
-            "Potential frame-pacing improvement", true, true);
+            "Potential frame-pacing improvement", true, true, "Low");
 
-        AddRegistryRecommendation(items, "mpo", "Graphics", "Disable Multi-Plane Overlay override",
+        AddRegistryRecommendation(items, "mpo", "Graphics", "Use the MPO compatibility override",
             report.Gaming.MpoOverride, "5",
-            "MPO can contribute to flicker, stutter or presentation issues on some Windows and driver combinations. This is a compatibility choice, not a universal performance win.",
+            "The MPO override can resolve flicker or presentation-path instability on affected systems. It is not a universal performance enhancement and should remain a symptom-driven choice.",
             "Sets HKLM\\SOFTWARE\\Microsoft\\Windows\\Dwm\\OverlayTestMode to 5.",
-            "Compatibility/stability improvement", true, true);
+            "Compatibility or stability improvement", true, true, "Medium");
 
         if (report.Health.PendingRebootCount > 0)
         {
             items.Add(new OptimizationRecommendation
             {
-                Id = "pending-reboot", Category = "System", Title = "Complete pending Windows servicing",
+                Id = "pending-reboot", Category = "Health", Title = "Complete pending Windows servicing",
                 CurrentState = $"{report.Health.PendingRebootCount} pending reboot indicator(s)", TargetState = "No pending reboot indicators",
                 Why = "Drivers, Windows components and registry changes may not be fully active until Windows completes the pending reboot.",
-                How = "Save work and restart Windows normally. GPTOPT does not force a reboot.",
+                How = "Save work and restart Windows normally. GPTOPT does not force a reboot or close applications.",
                 ExpectedImpact = "Configuration consistency", Risk = "Low", RequiresReboot = true, CanApply = false
             });
         }
@@ -48,10 +48,10 @@ public sealed class RecommendationService
         {
             items.Add(new OptimizationRecommendation
             {
-                Id = "problem-device", Category = "Devices", Title = "Investigate problem device",
+                Id = "problem-device", Category = "Devices", Title = "Identify the problem device before changing drivers",
                 CurrentState = $"{report.Health.ProblemDeviceCount} device(s) reporting a problem", TargetState = "No relevant device errors",
-                Why = "A failed or partially configured device can cause retries, disconnects, DPC activity or missing functionality.",
-                How = "Open the latest private audit and identify the device class, status and problem code before changing drivers.",
+                Why = "A failed or partially configured device can cause retries, disconnects, DPC activity or missing functionality. The exact device and problem code matter more than the count.",
+                How = "Open Device Manager or the newest private audit, identify the device class and problem code, then choose a targeted repair. GPTOPT will not bulk-update drivers.",
                 ExpectedImpact = "Potential stability improvement", Risk = "Diagnostic", CanApply = false
             });
         }
@@ -60,9 +60,9 @@ public sealed class RecommendationService
         {
             items.Add(new OptimizationRecommendation
             {
-                Id = "flydigi", Category = "Controller", Title = "Verify Flydigi controller path",
+                Id = "flydigi", Category = "Devices", Title = "Verify the Flydigi controller path",
                 CurrentState = "Flydigi/Vader not detected", TargetState = "Controller and GameControllerService detected",
-                Why = "The controller service and wired device path must be present for consistent input and app-side tuning.",
+                Why = "The wired controller path and Flydigi service must remain present for consistent input and app-side tuning.",
                 How = "Connect the controller by USB, keep Flydigi SpaceStation running, and confirm GameControllerService is active.",
                 ExpectedImpact = "Input reliability", Risk = "Diagnostic", CanApply = false
             });
@@ -72,12 +72,24 @@ public sealed class RecommendationService
         {
             items.Add(new OptimizationRecommendation
             {
-                Id = "event-analysis", Category = "Diagnostics", Title = "Classify recent Windows errors",
+                Id = "event-analysis", Category = "Health", Title = "Classify recent Windows errors",
                 CurrentState = $"{report.Health.SystemErrorCount} system and {report.Health.ApplicationErrorCount} application errors in 72 hours",
-                TargetState = "Known benign events separated from actionable faults",
-                Why = "Counts alone are not useful. Provider, event ID, affected process and recurrence determine whether an error matters for gaming.",
-                How = "Run the enhanced diagnostic classifier to group WHEA, display-driver, storage, USB, application crash and service events.",
+                TargetState = "Benign events separated from recurring actionable faults",
+                Why = "Raw event counts are not a performance metric. Provider, event ID, affected process and recurrence determine whether an error matters for gaming.",
+                How = "Use Event Viewer or the upcoming GPTOPT classifier to group WHEA, display-driver, storage, USB, application crash and service failures.",
                 ExpectedImpact = "Root-cause visibility", Risk = "Diagnostic", CanApply = false
+            });
+        }
+
+        if (items.Count == 0)
+        {
+            items.Add(new OptimizationRecommendation
+            {
+                Id = "baseline-clean", Category = "Health", Title = "No configuration changes recommended",
+                CurrentState = "Audited gaming baseline is already at target", TargetState = "Preserve current settings and measure performance",
+                Why = "Changing already-correct settings adds risk without evidence of a benefit.",
+                How = "Move to performance capture and compare frame-time data before introducing any additional tweak.",
+                ExpectedImpact = "Avoid unnecessary changes", Risk = "None", CanApply = false
             });
         }
 
@@ -85,22 +97,25 @@ public sealed class RecommendationService
     }
 
     private static void AddRegistryRecommendation(List<OptimizationRecommendation> items, string id, string category,
-        string title, string current, string target, string why, string how, string impact, bool admin, bool reboot)
+        string title, string current, string target, string why, string how, string impact, bool admin, bool reboot, string risk)
     {
-        var correct = string.Equals(current, target, StringComparison.OrdinalIgnoreCase);
+        if (string.Equals(current, target, StringComparison.OrdinalIgnoreCase)) return;
+
         items.Add(new OptimizationRecommendation
         {
-            Id = id, Category = category, Title = title,
+            Id = id,
+            Category = category,
+            Title = title,
             CurrentState = string.IsNullOrWhiteSpace(current) ? "Not set" : current,
             TargetState = target,
-            Why = correct ? $"Already configured. {why}" : why,
+            Why = why,
             How = how,
-            ExpectedImpact = correct ? "Already at target" : impact,
-            Risk = id == "mpo" ? "Medium" : "Low",
+            ExpectedImpact = impact,
+            Risk = risk,
             RequiresAdmin = admin,
             RequiresReboot = reboot,
-            CanApply = !correct,
-            IsSelected = !correct && id is "game-mode" or "game-dvr"
+            CanApply = true,
+            IsSelected = id is "game-mode" or "game-dvr"
         });
     }
 }
