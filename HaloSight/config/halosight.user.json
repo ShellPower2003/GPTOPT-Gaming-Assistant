@@ -20,7 +20,8 @@
   },
   "OptionalTools": {
     "PresentMonExe": "tools\\PresentMon.exe",
-    "FfmpegExe": "ffmpeg.exe"
+    "FfmpegExe": "ffmpeg.exe",
+    "NvidiaProfileInspectorPath": ""
   },
   "VideoCompress": {
     "Enabled": true,
