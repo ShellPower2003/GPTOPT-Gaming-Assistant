@@ -55,7 +55,7 @@ $rows=foreach($e in $items){
 $rows | Group-Object Application | ForEach-Object {
   $latest=$_.Group | Sort-Object Time -Descending | Select-Object -First 1
   [pscustomobject]@{Application=$_.Name;Count=$_.Count;Latest=$latest.Time;EventId=$latest.EventId}
-} | Sort-Object Count -Descending,Latest -Descending | ConvertTo-Csv -NoTypeInformation");
+} | Sort-Object -Property @{Expression='Count';Descending=$true},@{Expression='Latest';Descending=$true} | ConvertTo-Csv -NoTypeInformation");
         report.AppendLine("APPLICATION CRASHES (LAST 72 HOURS)");
         report.AppendLine(string.IsNullOrWhiteSpace(crashes) ? "None found." : crashes.Trim());
         report.AppendLine();
