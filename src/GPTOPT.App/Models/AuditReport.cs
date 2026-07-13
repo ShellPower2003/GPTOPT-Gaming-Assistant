@@ -56,6 +56,7 @@ public sealed class HealthInfo
     public string[] ProblemDeviceNames { get; set; } = [];
     public string[] PendingRebootSources { get; set; } = [];
     public string[] PendingRenameFiles { get; set; } = [];
+    public string[] ControllerFaultEvidence { get; set; } = [];
     public string[] GamingCrashApps { get; set; } = [];
     public string[] BackgroundCrashApps { get; set; } = [];
 }
