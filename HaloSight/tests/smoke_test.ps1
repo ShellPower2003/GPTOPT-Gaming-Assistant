@@ -9,63 +9,47 @@ $RepoRoot = Split-Path -Parent $Root
 $LauncherPath = Join-Path $RepoRoot 'GPTOPT_LAUNCHER.cmd'
 $RunGptOptPath = Join-Path $RepoRoot 'Run-GPTOPT.ps1'
 $BuildPath = Join-Path $RepoRoot 'Build-GPTOPTApp.ps1'
+$AuditScriptPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTAudit.ps1'
 $ProjectPath = Join-Path $RepoRoot 'src\GPTOPT.App\GPTOPT.App.csproj'
 $XamlPath = Join-Path $RepoRoot 'src\GPTOPT.App\MainWindow.xaml'
 
-function Assert($Condition, $Message){
-    if(-not $Condition){ throw $Message }
-}
+function Assert($Condition, $Message){ if(-not $Condition){ throw $Message } }
+function Assert-Parses($Path){ $null = [scriptblock]::Create((Get-Content -Raw -LiteralPath $Path)) }
 
-function Assert-Parses($Path){
-    $code = Get-Content -Raw -LiteralPath $Path
-    $null = [scriptblock]::Create($code)
-}
-
-Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.ps1' |
-    ForEach-Object { Assert-Parses $_.FullName }
-
-Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.json' |
-    ForEach-Object { $null = Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json }
+Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.ps1' | ForEach-Object { Assert-Parses $_.FullName }
+Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.json' | ForEach-Object { $null = Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json }
+Assert-Parses $RunGptOptPath
+Assert-Parses $BuildPath
+Assert-Parses $AuditScriptPath
 
 . $SettingsScript
 $configBackup = if(Test-Path -LiteralPath $UserConfigPath){ Get-Content -Raw -LiteralPath $UserConfigPath }else{ $null }
 $oldUserProfile = $env:USERPROFILE
 $testHome = Join-Path $env:TEMP ("HaloSightSmoke_" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $testHome | Out-Null
-
 try{
     $env:USERPROFILE = $testHome
-
     $resetConfig = Reset-HaloSightConfig
     Assert ($resetConfig.Project -eq 'GPTOPT-HaloSight') 'Reset config project name mismatch.'
-
     $mergedConfig = Get-HaloSightConfig
     Assert ($mergedConfig.Project -eq 'GPTOPT-HaloSight') 'Merged config project name mismatch.'
-
     $mergedConfig.SessionRoot = (Join-Path $testHome 'HaloSight\sessions')
     $savedConfig = Save-HaloSightConfig $mergedConfig
     Assert ($savedConfig.SessionRoot -eq $mergedConfig.SessionRoot) 'Saved config session root mismatch.'
-
     $validation = Test-HaloSightConfig $savedConfig
     Assert $validation.IsValid ('Settings validation failed: ' + ($validation.Errors -join '; '))
-
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $CoreScript -Mode status | Out-Host
     Assert ($LASTEXITCODE -eq 0) 'HaloSight.ps1 -Mode status failed.'
 }finally{
     $env:USERPROFILE = $oldUserProfile
-    if($null -ne $configBackup){
-        $configBackup | Out-File -FilePath $UserConfigPath -Encoding UTF8
-    }else{
-        Remove-Item -LiteralPath $UserConfigPath -Force -ErrorAction SilentlyContinue
-    }
+    if($null -ne $configBackup){ $configBackup | Out-File -FilePath $UserConfigPath -Encoding UTF8 }
+    else{ Remove-Item -LiteralPath $UserConfigPath -Force -ErrorAction SilentlyContinue }
     Remove-Item -LiteralPath $testHome -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Assert (Test-Path -LiteralPath $LauncherPath) 'GPTOPT_LAUNCHER.cmd missing.'
-Assert (Test-Path -LiteralPath $RunGptOptPath) 'Run-GPTOPT.ps1 missing.'
-Assert (Test-Path -LiteralPath $BuildPath) 'Build-GPTOPTApp.ps1 missing.'
-Assert (Test-Path -LiteralPath $ProjectPath) 'Native app project missing.'
-Assert (Test-Path -LiteralPath $XamlPath) 'Native app XAML missing.'
+foreach($requiredPath in @($LauncherPath,$RunGptOptPath,$BuildPath,$AuditScriptPath,$ProjectPath,$XamlPath)){
+    Assert (Test-Path -LiteralPath $requiredPath) "Required runtime file missing: $requiredPath"
+}
 
 $launcherText = Get-Content -Raw -LiteralPath $LauncherPath
 Assert ($launcherText -match 'Run-GPTOPT\.ps1"?\s+-Mode\s+gui') 'GPTOPT_LAUNCHER.cmd must launch Run-GPTOPT.ps1 in native GUI mode.'
@@ -88,30 +72,19 @@ Assert ($buildText -notmatch 'Set-Content\s+-LiteralPath\s+\$Xaml') 'Build scrip
 
 [xml](Get-Content -Raw -LiteralPath $XamlPath) | Out-Null
 $xamlText = Get-Content -Raw -LiteralPath $XamlPath
-foreach($requiredHandler in @(
-    'PrepareForHalo_Click',
-    'RunTargetedDiagnostics_Click',
-    'AnalyzeLatestSession_Click',
-    'CompareCaptures_Click',
-    'OpenPresentMonRobust_Click',
-    'PublishAuditButton_Click',
-    'OpenRollbackManager_Click'
-)){
+foreach($requiredHandler in @('PrepareForHalo_Click','RunTargetedDiagnostics_Click','AnalyzeLatestSession_Click','CompareCaptures_Click','OpenPresentMonRobust_Click','PublishAuditButton_Click','OpenRollbackManager_Click')){
     Assert ($xamlText -match ('Click="' + [regex]::Escape($requiredHandler) + '"')) "Required native handler $requiredHandler is not wired in XAML."
 }
 
-$runtimeFiles = Get-ChildItem -LiteralPath $RepoRoot -Recurse -File |
-    Where-Object {
-        $_.Extension -in @('.ps1','.cmd') -and
-        $_.FullName -notlike "*\tests\*" -and
-        $_.FullName -notlike "*\.github\*" -and
-        $_.FullName -notlike "*\bin\*" -and
-        $_.FullName -notlike "*\obj\*" -and
-        $_.FullName -notlike "*\dist\*"
-    }
-$runtimeText = ($runtimeFiles | ForEach-Object { Get-Content -Raw -LiteralPath $_.FullName }) -join "`n"
+$runtimePaths = @(
+    $LauncherPath,
+    $RunGptOptPath,
+    $BuildPath,
+    $AuditScriptPath
+) + @(Get-ChildItem -LiteralPath (Join-Path $Root 'scripts') -Recurse -File -Include '*.ps1','*.cmd' | Select-Object -ExpandProperty FullName)
+$runtimeText = ($runtimePaths | Sort-Object -Unique | ForEach-Object { Get-Content -Raw -LiteralPath $_ }) -join "`n"
 
-Assert ($runtimeText -notmatch '(?i)\btaskkill\b') 'taskkill call found.'
+Assert ($runtimeText -notmatch '(?i)\btaskkill\b') 'taskkill call found in shipped runtime.'
 Assert ($runtimeText -notmatch '(?i)(chrome|msedge|browser)[\s\S]{0,160}(CloseMainWindow|Kill\(|taskkill|Stop-Process)') 'Browser closure targeting found.'
 Assert ($runtimeText -notmatch '(?i)HaloInfinite[\s\S]{0,160}\.PriorityClass\s*=') 'HaloInfinite priority assignment found.'
 Assert ($runtimeText -notmatch '(?i)\.PriorityClass\s*=') 'Process priority assignment found.'
