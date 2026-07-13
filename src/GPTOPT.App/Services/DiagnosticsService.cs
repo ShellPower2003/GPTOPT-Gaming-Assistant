@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 
 namespace GPTOPT.App.Services;
@@ -24,16 +25,19 @@ ConvertTo-Csv -NoTypeInformation");
         status?.Report("Classifying recent system events...");
         var events = await RunPowerShellCaptureAsync(@"
 $start=(Get-Date).AddDays(-3)
+$all=Get-WinEvent -FilterHashtable @{LogName='System';StartTime=$start;Level=1,2,3} -ErrorAction SilentlyContinue
 $groups = @(
-  @{Name='Hardware/WHEA'; Log='System'; Providers=@('Microsoft-Windows-WHEA-Logger'); Ids=@()},
-  @{Name='Display/GPU'; Log='System'; Providers=@('Display','nvlddmkm'); Ids=@(4101)},
-  @{Name='Storage'; Log='System'; Providers=@('disk','stornvme','storahci','Ntfs'); Ids=@(7,11,51,55,129,153)},
-  @{Name='USB/Controller'; Log='System'; Providers=@('Microsoft-Windows-Kernel-PnP','Kernel-PnP','USBHUB3','Microsoft-Windows-DriverFrameworks-UserMode'); Ids=@(2003,2100,2102,219)}
+  @{Name='Hardware/WHEA'; Items=@($all | Where-Object ProviderName -eq 'Microsoft-Windows-WHEA-Logger')},
+  @{Name='Display/GPU'; Items=@($all | Where-Object { $_.ProviderName -in @('Display','nvlddmkm') -or $_.Id -eq 4101 })},
+  @{Name='Storage'; Items=@($all | Where-Object { ($_.ProviderName -in @('disk','stornvme','storahci','Ntfs')) -and ($_.Id -in @(7,11,51,55,129,153)) })},
+  @{Name='USB/Controller'; Items=@($all | Where-Object {
+      ($_.ProviderName -in @('Microsoft-Windows-Kernel-PnP','Kernel-PnP','USBHUB3','Microsoft-Windows-DriverFrameworks-UserMode')) -and
+      ($_.Id -in @(2003,2100,2102,219)) -and
+      ($_.Message -match '(?i)USB|HID|controller|gamepad|Flydigi|Vader|Xbox|VID_045E&PID_028E')
+  })}
 )
 $results = foreach($g in $groups){
-  $items=Get-WinEvent -FilterHashtable @{LogName=$g.Log;StartTime=$start;Level=1,2,3} -ErrorAction SilentlyContinue |
-    Where-Object { ($g.Providers -contains $_.ProviderName) -or ($g.Ids.Count -gt 0 -and $g.Ids -contains $_.Id) }
-  [pscustomobject]@{Category=$g.Name;Count=@($items).Count;Latest=(@($items)|Sort-Object TimeCreated -Descending|Select-Object -First 1 -ExpandProperty TimeCreated)}
+  [pscustomobject]@{Category=$g.Name;Count=@($g.Items).Count;Latest=(@($g.Items)|Sort-Object TimeCreated -Descending|Select-Object -First 1 -ExpandProperty TimeCreated)}
 }
 $results | ConvertTo-Csv -NoTypeInformation");
         report.AppendLine("EVENT CLASSIFICATION (LAST 72 HOURS)");
@@ -92,12 +96,54 @@ $names=@($rename | Where-Object { $_ } | ForEach-Object { Split-Path $_ -Leaf } 
         report.AppendLine(string.IsNullOrWhiteSpace(reboot) ? "No reboot-source information returned." : reboot.Trim());
         report.AppendLine();
 
+        var wheaCount = ExtractCsvCount(events, "Hardware/WHEA");
+        var gpuCount = ExtractCsvCount(events, "Display/GPU");
+        var storageCount = ExtractCsvCount(events, "Storage");
+        var controllerCount = ExtractCsvCount(events, "USB/Controller");
+
         report.AppendLine("INTERPRETATION");
-        report.AppendLine("• Zero WHEA, display-reset, storage-timeout, and USB/controller events is a strong result.");
+        report.AppendLine(wheaCount == 0 && gpuCount == 0 && storageCount == 0
+            ? "• Zero WHEA, display-reset, and storage-timeout events is a strong result."
+            : $"• Gaming-critical events require review: WHEA {wheaCount}, display/GPU {gpuCount}, storage {storageCount}.");
+        report.AppendLine(controllerCount == 0
+            ? "• No controller-specific USB/PnP fault events matched the Vader/Xbox/HID path."
+            : $"• {controllerCount} controller-specific USB/PnP event(s) matched. Review their timestamps and device IDs before treating them as an active fault.");
         report.AppendLine("• Application crash counts are not treated as gaming faults until the crashing executable is identified above.");
         report.AppendLine("• Controller devices are restricted to actual game-controller matches; host controllers and unrelated system devices are excluded.");
         report.AppendLine("• PendingFileRename lists the affected filenames so a stale entry can be distinguished from a real update or driver reboot.");
         return report.ToString();
+    }
+
+    private static int ExtractCsvCount(string csv, string category)
+    {
+        foreach (var line in csv.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Skip(1))
+        {
+            var fields = ParseCsvLine(line);
+            if (fields.Count >= 2 && string.Equals(fields[0], category, StringComparison.OrdinalIgnoreCase) &&
+                int.TryParse(fields[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var count))
+                return count;
+        }
+        return 0;
+    }
+
+    private static List<string> ParseCsvLine(string line)
+    {
+        var fields = new List<string>();
+        var current = new StringBuilder();
+        var quoted = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            var c = line[i];
+            if (c == '"')
+            {
+                if (quoted && i + 1 < line.Length && line[i + 1] == '"') { current.Append('"'); i++; }
+                else quoted = !quoted;
+            }
+            else if (c == ',' && !quoted) { fields.Add(current.ToString()); current.Clear(); }
+            else current.Append(c);
+        }
+        fields.Add(current.ToString());
+        return fields;
     }
 
     private static async Task<string> RunPowerShellCaptureAsync(string command)
