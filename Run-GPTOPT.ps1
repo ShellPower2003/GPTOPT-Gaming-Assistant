@@ -12,12 +12,34 @@ function Show-Step([int]$Percent, [string]$Status) {
     Write-Progress -Activity 'Starting GPTOPT' -Status "$Percent% - $Status" -PercentComplete $Percent
 }
 
+function Update-GPTOPTSource {
+    $git = Get-Command git.exe -ErrorAction SilentlyContinue
+    $gitFolder = Join-Path $Root '.git'
+    if (-not $git -or -not (Test-Path -LiteralPath $gitFolder)) { return }
+
+    Show-Step 8 'Checking for GPTOPT updates'
+    $dirty = & $git.Source -C $Root status --porcelain 2>$null
+    if ($LASTEXITCODE -ne 0 -or $dirty) { return }
+
+    & $git.Source -C $Root fetch origin agent/native-desktop-app --quiet
+    if ($LASTEXITCODE -ne 0) { return }
+
+    $branch = (& $git.Source -C $Root branch --show-current 2>$null).Trim()
+    if ($branch -ne 'agent/native-desktop-app') {
+        & $git.Source -C $Root switch agent/native-desktop-app --quiet
+        if ($LASTEXITCODE -ne 0) { return }
+    }
+
+    & $git.Source -C $Root merge --ff-only origin/agent/native-desktop-app --quiet
+}
+
 function Start-NativeApp([switch]$ForceBuild) {
     $Exe = Join-Path $Root 'dist\win-x64\GPTOPT.exe'
     $BuildScript = Join-Path $Root 'Build-GPTOPTApp.ps1'
     $ProjectRoot = Join-Path $Root 'src\GPTOPT.App'
 
-    Show-Step 5 'Checking installed application'
+    Update-GPTOPTSource
+    Show-Step 15 'Checking installed application'
 
     $needsBuild = $ForceBuild -or -not (Test-Path -LiteralPath $Exe)
     if (-not $needsBuild -and (Test-Path -LiteralPath $ProjectRoot)) {
@@ -29,7 +51,7 @@ function Start-NativeApp([switch]$ForceBuild) {
     }
 
     if ($needsBuild) {
-        Show-Step 20 'Building the latest native app'
+        Show-Step 25 'Building the latest native app'
         if (-not (Test-Path -LiteralPath $BuildScript)) { throw "Build script not found: $BuildScript" }
 
         $pwsh = Get-Command pwsh.exe -ErrorAction SilentlyContinue
