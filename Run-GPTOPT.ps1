@@ -7,61 +7,111 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'Continue'
 $Root = Split-Path -Parent $PSCommandPath
+$TargetBranch = 'agent/native-desktop-app'
 
 function Show-Step([int]$Percent, [string]$Status) {
     Write-Progress -Activity 'Starting GPTOPT' -Status "$Percent% - $Status" -PercentComplete $Percent
+    Write-Host "[$Percent%] $Status" -ForegroundColor Cyan
+}
+
+function Get-Git {
+    Get-Command git.exe -ErrorAction SilentlyContinue
+}
+
+function Remove-GeneratedState {
+    $generated = @(
+        (Join-Path $Root 'src\GPTOPT.App\bin'),
+        (Join-Path $Root 'src\GPTOPT.App\obj')
+    )
+    foreach ($path in $generated) {
+        if (Test-Path -LiteralPath $path) {
+            Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Older builds patched this tracked XAML file at build time. Restore it before updating.
+    $git = Get-Git
+    if ($git -and (Test-Path -LiteralPath (Join-Path $Root '.git'))) {
+        & $git.Source -C $Root restore --source=HEAD --worktree -- 'src/GPTOPT.App/MainWindow.xaml' 2>$null
+    }
 }
 
 function Update-GPTOPTSource {
-    $git = Get-Command git.exe -ErrorAction SilentlyContinue
-    $gitFolder = Join-Path $Root '.git'
-    if (-not $git -or -not (Test-Path -LiteralPath $gitFolder)) { return }
+    $git = Get-Git
+    if (-not $git -or -not (Test-Path -LiteralPath (Join-Path $Root '.git'))) { return $false }
 
-    Show-Step 8 'Checking for GPTOPT updates'
-    $dirty = & $git.Source -C $Root status --porcelain 2>$null
-    if ($LASTEXITCODE -ne 0 -or $dirty) { return }
+    Show-Step 8 'Cleaning generated build state'
+    Remove-GeneratedState
 
-    & $git.Source -C $Root fetch origin agent/native-desktop-app --quiet
-    if ($LASTEXITCODE -ne 0) { return }
+    Show-Step 12 'Checking for GPTOPT updates'
+    $dirtyLines = @(& $git.Source -C $Root status --porcelain 2>$null)
+    $realChanges = @($dirtyLines | Where-Object {
+        $_ -and
+        $_ -notmatch 'src/GPTOPT\.App/(bin|obj)/' -and
+        $_ -notmatch '^\?\? dist/' -and
+        $_ -notmatch '^\?\? (Backups|Logs|Reports)/'
+    })
 
-    $branch = (& $git.Source -C $Root branch --show-current 2>$null).Trim()
-    if ($branch -ne 'agent/native-desktop-app') {
-        & $git.Source -C $Root switch agent/native-desktop-app --quiet
-        if ($LASTEXITCODE -ne 0) { return }
+    if ($realChanges.Count -gt 0) {
+        $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+        Show-Step 15 'Protecting local source changes'
+        & $git.Source -C $Root stash push --include-untracked -m "GPTOPT launcher backup $stamp" | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to protect local repository changes.' }
     }
 
-    & $git.Source -C $Root merge --ff-only origin/agent/native-desktop-app --quiet
+    & $git.Source -C $Root fetch origin $TargetBranch --quiet
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to fetch the latest GPTOPT source.' }
+
+    $branch = (& $git.Source -C $Root branch --show-current 2>$null).Trim()
+    if ($branch -ne $TargetBranch) {
+        & $git.Source -C $Root switch $TargetBranch --quiet
+        if ($LASTEXITCODE -ne 0) { throw "Unable to switch to $TargetBranch." }
+    }
+
+    $before = (& $git.Source -C $Root rev-parse HEAD).Trim()
+    & $git.Source -C $Root merge --ff-only "origin/$TargetBranch" --quiet
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to fast-forward GPTOPT to the latest version.' }
+    $after = (& $git.Source -C $Root rev-parse HEAD).Trim()
+
+    return $before -ne $after
 }
 
 function Start-NativeApp([switch]$ForceBuild) {
     $Exe = Join-Path $Root 'dist\win-x64\GPTOPT.exe'
     $BuildScript = Join-Path $Root 'Build-GPTOPTApp.ps1'
-    $ProjectRoot = Join-Path $Root 'src\GPTOPT.App'
+    $BuildStamp = Join-Path $Root 'dist\win-x64\.gptopt-build-commit'
+    $git = Get-Git
 
-    Update-GPTOPTSource
-    Show-Step 15 'Checking installed application'
+    $updated = Update-GPTOPTSource
+    Show-Step 20 'Checking installed application'
 
-    $needsBuild = $ForceBuild -or -not (Test-Path -LiteralPath $Exe)
-    if (-not $needsBuild -and (Test-Path -LiteralPath $ProjectRoot)) {
-        $exeTime = (Get-Item -LiteralPath $Exe).LastWriteTimeUtc
-        $newestSource = Get-ChildItem -LiteralPath $ProjectRoot -Recurse -File -Include *.cs,*.xaml,*.csproj |
-            Sort-Object LastWriteTimeUtc -Descending |
-            Select-Object -First 1
-        if ($newestSource -and $newestSource.LastWriteTimeUtc -gt $exeTime) { $needsBuild = $true }
+    $head = $null
+    if ($git -and (Test-Path -LiteralPath (Join-Path $Root '.git'))) {
+        $head = (& $git.Source -C $Root rev-parse HEAD 2>$null).Trim()
     }
+    $builtCommit = if (Test-Path -LiteralPath $BuildStamp) { (Get-Content -Raw -LiteralPath $BuildStamp).Trim() } else { '' }
+
+    $needsBuild = $ForceBuild -or $updated -or -not (Test-Path -LiteralPath $Exe) -or -not $head -or ($builtCommit -ne $head)
 
     if ($needsBuild) {
-        Show-Step 25 'Building the latest native app'
+        Show-Step 30 'Building the latest native app'
         if (-not (Test-Path -LiteralPath $BuildScript)) { throw "Build script not found: $BuildScript" }
 
         $pwsh = Get-Command pwsh.exe -ErrorAction SilentlyContinue
-        if (-not $pwsh) { throw 'PowerShell 7 is required to build GPTOPT. Install PowerShell 7 and run the launcher again.' }
+        if (-not $pwsh) { throw 'PowerShell 7 is required to build GPTOPT.' }
 
+        Stop-Process -Name GPTOPT -Force -ErrorAction SilentlyContinue
         & $pwsh.Source -NoProfile -ExecutionPolicy Bypass -File $BuildScript
         if ($LASTEXITCODE -ne 0) { throw "GPTOPT build failed with exit code $LASTEXITCODE." }
+
+        if (-not (Test-Path -LiteralPath $Exe)) { throw "GPTOPT executable not found after build: $Exe" }
+        Set-Content -LiteralPath $BuildStamp -Value $head -Encoding ascii -Force
+
+        # Remove build-generated repository dirt so future updates are never blocked.
+        Remove-GeneratedState
     }
 
-    if (-not (Test-Path -LiteralPath $Exe)) { throw "GPTOPT executable not found after build: $Exe" }
+    if (-not (Test-Path -LiteralPath $Exe)) { throw "GPTOPT executable not found: $Exe" }
 
     Show-Step 95 'Opening GPTOPT'
     $existing = Get-Process -Name GPTOPT -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -80,19 +130,16 @@ function Start-NativeApp([switch]$ForceBuild) {
 
 try {
     Set-Location -LiteralPath $Root
-
     switch ($Mode) {
         'gui'     { Start-NativeApp }
         'rebuild' { Start-NativeApp -ForceBuild }
         'legacy'  {
             $Legacy = Join-Path $Root 'HaloSight\scripts\HaloSightGUI.ps1'
-            if (-not (Test-Path -LiteralPath $Legacy)) { throw "Legacy GUI not found: $Legacy" }
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File $Legacy
             exit $LASTEXITCODE
         }
         'test' {
             $SmokeTest = Join-Path $Root 'HaloSight\tests\smoke_test.ps1'
-            if (-not (Test-Path -LiteralPath $SmokeTest)) { throw "Smoke test not found: $SmokeTest" }
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $SmokeTest
             exit $LASTEXITCODE
         }
