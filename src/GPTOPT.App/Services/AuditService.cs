@@ -6,6 +6,8 @@ namespace GPTOPT.App.Services;
 
 public sealed class AuditService
 {
+    private const string Repository = "ShellPower2003/GPTOPT-Gaming-Assistant";
+
     private readonly string _auditRoot = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "GPTOPT", "Audits");
@@ -18,9 +20,8 @@ public sealed class AuditService
         if (!File.Exists(script))
             throw new FileNotFoundException("GPTOPT audit backend was not packaged with the app.", script);
 
-        status?.Report(publish ? "Starting full PC audit and verified publish…" : "Starting full PC audit…");
-        var arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\"" + (publish ? " -Publish" : string.Empty);
-        var start = new ProcessStartInfo("powershell.exe", arguments)
+        status?.Report(publish ? "Starting full PC audit before verified publish…" : "Starting full PC audit…");
+        var start = new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\"")
         {
             UseShellExecute = false,
             CreateNoWindow = true,
@@ -35,7 +36,119 @@ public sealed class AuditService
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
         await process.WaitForExitAsync();
-        return process.ExitCode;
+        if (process.ExitCode != 0) return process.ExitCode;
+
+        if (publish)
+        {
+            status?.Report("Publishing the current audit to GitHub issue audit-latest…");
+            await PublishLatestAuditAsync(status);
+        }
+
+        return 0;
+    }
+
+    private async Task PublishLatestAuditAsync(IProgress<string>? status)
+    {
+        var markdownPath = Path.Combine(_auditRoot, "latest", "GPTOPT-SanitizedReport.md");
+        var jsonPath = Path.Combine(_auditRoot, "latest", "GPTOPT-SanitizedReport.json");
+        if (!File.Exists(markdownPath) || !File.Exists(jsonPath))
+            throw new FileNotFoundException("The current sanitized audit was not created, so publishing was stopped.");
+
+        using var auditDocument = JsonDocument.Parse(await File.ReadAllTextAsync(jsonPath));
+        var auditId = Read(auditDocument.RootElement, "audit_id");
+        var machineKey = Read(auditDocument.RootElement, "machine_key");
+        if (string.IsNullOrWhiteSpace(auditId) || string.IsNullOrWhiteSpace(machineKey))
+            throw new InvalidDataException("The current audit is missing its audit ID or machine key.");
+
+        var gh = FindGitHubCli();
+        await RunProcessCheckedAsync(gh, "auth status --hostname github.com", "GitHub CLI is not authenticated. Run gh auth login.");
+
+        var issueJson = await RunProcessCheckedAsync(
+            gh,
+            $"issue list --repo {Repository} --state open --label audit-latest --json number,title --limit 20",
+            "Unable to query the audit-latest GitHub issue.");
+
+        int? issueNumber = null;
+        if (!string.IsNullOrWhiteSpace(issueJson))
+        {
+            using var issueDocument = JsonDocument.Parse(issueJson);
+            foreach (var issue in issueDocument.RootElement.EnumerateArray())
+            {
+                var title = Read(issue, "title");
+                if (title.Contains("Latest PC Audit", StringComparison.OrdinalIgnoreCase))
+                {
+                    issueNumber = ReadInt(issue, "number");
+                    break;
+                }
+            }
+        }
+
+        var titleText = $"[GPTOPT-AUDIT:{machineKey}] Latest PC Audit";
+        if (issueNumber is null or 0)
+        {
+            var createOutput = await RunProcessCheckedAsync(
+                gh,
+                $"issue create --repo {Repository} --title \"{titleText}\" --label audit-latest --body-file \"{markdownPath}\"",
+                "Unable to create the audit-latest GitHub issue.");
+            var numberText = createOutput.TrimEnd('/').Split('/').LastOrDefault();
+            if (!int.TryParse(numberText, out var createdNumber))
+                throw new InvalidOperationException("GitHub created the audit issue, but GPTOPT could not determine its issue number.");
+            issueNumber = createdNumber;
+        }
+        else
+        {
+            await RunProcessCheckedAsync(
+                gh,
+                $"issue edit {issueNumber.Value} --repo {Repository} --title \"{titleText}\" --body-file \"{markdownPath}\"",
+                "Unable to update the audit-latest GitHub issue.");
+        }
+
+        status?.Report($"Verifying GitHub issue #{issueNumber.Value} contains audit {auditId}…");
+        var verifiedJson = await RunProcessCheckedAsync(
+            gh,
+            $"issue view {issueNumber.Value} --repo {Repository} --json body,url",
+            "The audit issue was written but could not be read back for verification.");
+        using var verifiedDocument = JsonDocument.Parse(verifiedJson);
+        var body = Read(verifiedDocument.RootElement, "body");
+        var url = Read(verifiedDocument.RootElement, "url");
+        if (!body.Contains(auditId, StringComparison.Ordinal))
+            throw new InvalidOperationException($"Publish verification failed: GitHub issue #{issueNumber.Value} does not contain {auditId}.");
+
+        status?.Report($"Publish verified: {url}");
+    }
+
+    private static string FindGitHubCli()
+    {
+        var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        foreach (var folder in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var candidate = Path.Combine(folder.Trim(), "gh.exe");
+            if (File.Exists(candidate)) return candidate;
+        }
+
+        var common = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "GitHub CLI", "gh.exe");
+        if (File.Exists(common)) return common;
+        throw new FileNotFoundException("GitHub CLI (gh.exe) is required for Publish Verified.");
+    }
+
+    private static async Task<string> RunProcessCheckedAsync(string fileName, string arguments, string failureMessage)
+    {
+        var start = new ProcessStartInfo(fileName, arguments)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        using var process = Process.Start(start) ?? throw new InvalidOperationException(failureMessage);
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        var output = await outputTask;
+        var error = await errorTask;
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? failureMessage : $"{failureMessage}\n{error.Trim()}");
+        return output;
     }
 
     public AuditReport? LoadLatest()
