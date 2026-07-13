@@ -81,27 +81,58 @@ public sealed class PerformanceComparisonService
 
     private static List<double> ReadFrameTimes(string path)
     {
-        var lines = File.ReadAllLines(path);
-        if (lines.Length < 2) return [];
-        var separator = lines[0].Contains(';') ? ';' : ',';
-        var headers = Split(lines[0], separator);
+        using var reader = new StreamReader(path);
+        var headerLine = reader.ReadLine();
+        if (string.IsNullOrWhiteSpace(headerLine)) return [];
+
+        var separator = headerLine.Contains(';') ? ';' : ',';
+        var headers = ParseCsvLine(headerLine, separator);
         var candidates = new[] { "MsBetweenPresents", "Frametime", "FrameTime", "Frame Time", "FrameTimeMs", "msBetweenPresents" };
         var index = Array.FindIndex(headers, h => candidates.Any(c => h.Contains(c, StringComparison.OrdinalIgnoreCase)));
-        if (index < 0) throw new InvalidDataException("Could not find a frame-time column. Supported names include MsBetweenPresents, Frametime, FrameTime, or FrameTimeMs.");
+        if (index < 0)
+            throw new InvalidDataException("Could not find a frame-time column. Supported names include MsBetweenPresents, Frametime, FrameTime, or FrameTimeMs.");
 
         var values = new List<double>();
-        foreach (var line in lines.Skip(1))
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
         {
-            var fields = Split(line, separator);
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            var fields = ParseCsvLine(line, separator);
             if (fields.Length <= index) continue;
-            var raw = fields[index].Trim().Trim('"');
+            var raw = fields[index].Trim();
             if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value > 0 && value < 1000)
                 values.Add(value);
         }
         return values;
     }
 
-    private static string[] Split(string line, char separator) => line.Split(separator);
+    private static string[] ParseCsvLine(string line, char separator)
+    {
+        var values = new List<string>();
+        var current = new StringBuilder();
+        var quoted = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            var ch = line[i];
+            if (ch == '"')
+            {
+                if (quoted && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                }
+                else quoted = !quoted;
+            }
+            else if (ch == separator && !quoted)
+            {
+                values.Add(current.ToString());
+                current.Clear();
+            }
+            else current.Append(ch);
+        }
+        values.Add(current.ToString());
+        return values.ToArray();
+    }
 
     private static Summary Summarize(List<double> values)
     {
