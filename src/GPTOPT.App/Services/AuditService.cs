@@ -18,7 +18,7 @@ public sealed class AuditService
         if (!File.Exists(script))
             throw new FileNotFoundException("GPTOPT audit backend was not packaged with the app.", script);
 
-        status?.Report("Starting full PC audit…");
+        status?.Report(publish ? "Starting full PC audit and verified publish…" : "Starting full PC audit…");
         var arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\"" + (publish ? " -Publish" : string.Empty);
         var start = new ProcessStartInfo("powershell.exe", arguments)
         {
@@ -75,8 +75,7 @@ public sealed class AuditService
             report.Devices.NvidiaDriver = Read(devices, "nvidia_driver");
             report.Devices.ActiveWiredAdapters = ReadInt(devices, "active_wired_adapters");
             report.Devices.ActiveWifiAdapters = ReadInt(devices, "active_wifi_adapters");
-            if (devices.TryGetProperty("gptopt_processes", out var processes) && processes.ValueKind == JsonValueKind.Array)
-                report.Devices.GptoptProcesses = processes.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToArray();
+            report.Devices.GptoptProcesses = ReadArray(devices, "gptopt_processes");
         }
         if (root.TryGetProperty("health", out var health))
         {
@@ -85,6 +84,26 @@ public sealed class AuditService
             report.Health.ProblemDeviceCount = ReadInt(health, "problem_device_count");
             report.Health.PendingRebootCount = ReadInt(health, "pending_reboot_count");
             report.Health.SystemDriveFreeGb = ReadDouble(health, "system_drive_free_gb");
+            report.Health.WheaCount = ReadInt(health, "whea_count");
+            report.Health.DisplayResetCount = ReadInt(health, "display_reset_count");
+            report.Health.StorageFaultCount = ReadInt(health, "storage_fault_count");
+            report.Health.ControllerFaultCount = ReadInt(health, "controller_fault_count");
+            report.Health.GamingCrashCount = ReadInt(health, "gaming_crash_count");
+            report.Health.BackgroundCrashCount = ReadInt(health, "background_crash_count");
+            report.Health.ProblemDeviceNames = ReadArray(health, "problem_device_names");
+            report.Health.PendingRebootSources = ReadArray(health, "pending_reboot_sources");
+            report.Health.PendingRenameFiles = ReadArray(health, "pending_rename_files");
+            report.Health.GamingCrashApps = ReadArray(health, "gaming_crash_apps");
+            report.Health.BackgroundCrashApps = ReadArray(health, "background_crash_apps");
+        }
+        if (root.TryGetProperty("readiness", out var readiness))
+        {
+            report.Readiness.Score = ReadInt(readiness, "score");
+            report.Readiness.Status = Read(readiness, "status");
+            report.Readiness.Summary = Read(readiness, "summary");
+            report.Readiness.Blockers = ReadArray(readiness, "blockers");
+            report.Readiness.Warnings = ReadArray(readiness, "warnings");
+            report.Readiness.PassedChecks = ReadArray(readiness, "passed_checks");
         }
         return report;
     }
@@ -106,4 +125,8 @@ public sealed class AuditService
         element.TryGetProperty(name, out var value) && value.TryGetDouble(out var result) ? result : 0;
     private static bool ReadBool(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
+    private static string[] ReadArray(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array
+            ? value.EnumerateArray().Select(x => x.ToString()).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray()
+            : [];
 }
