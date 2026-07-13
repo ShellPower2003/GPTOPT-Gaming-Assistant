@@ -8,6 +8,7 @@ public sealed class AuditReport
     public GamingInfo Gaming { get; set; } = new();
     public DeviceInfo Devices { get; set; } = new();
     public HealthInfo Health { get; set; } = new();
+    public ReadinessInfo Readiness { get; set; } = new();
 }
 
 public sealed class PlatformInfo
@@ -46,4 +47,25 @@ public sealed class HealthInfo
     public int ProblemDeviceCount { get; set; }
     public int PendingRebootCount { get; set; }
     public double SystemDriveFreeGb { get; set; }
+    public int WheaCount { get; set; }
+    public int DisplayResetCount { get; set; }
+    public int StorageFaultCount { get; set; }
+    public int ControllerFaultCount { get; set; }
+    public int GamingCrashCount { get; set; }
+    public int BackgroundCrashCount { get; set; }
+    public string[] ProblemDeviceNames { get; set; } = [];
+    public string[] PendingRebootSources { get; set; } = [];
+    public string[] PendingRenameFiles { get; set; } = [];
+    public string[] GamingCrashApps { get; set; } = [];
+    public string[] BackgroundCrashApps { get; set; } = [];
+}
+
+public sealed class ReadinessInfo
+{
+    public int Score { get; set; } = 100;
+    public string Status { get; set; } = "Unknown";
+    public string Summary { get; set; } = "Run a scan to calculate gaming readiness.";
+    public string[] Blockers { get; set; } = [];
+    public string[] Warnings { get; set; } = [];
+    public string[] PassedChecks { get; set; } = [];
 }
