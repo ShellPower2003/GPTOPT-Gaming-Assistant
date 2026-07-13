@@ -73,13 +73,13 @@ Assert ($launcherText -notmatch '(?i):menu|set /p|Select an option|HaloSight Sta
 Assert ($launcherText -notmatch '(?i)HaloSight\.ps1"\s+-Mode\s+(start|stop|status|report)') 'GPTOPT_LAUNCHER.cmd exposes direct HaloSight modes.'
 
 $runText = Get-Content -Raw -LiteralPath $RunGptOptPath
-Assert ($runText -match "\[ValidateSet\('gui','legacy','test','rebuild'\)\]") 'Run-GPTOPT.ps1 mode contract mismatch.'
-Assert ($runText -match "\[string\]\$Mode\s*=\s*'gui'") 'Run-GPTOPT.ps1 must default to GUI mode.'
+Assert ($runText -match '\[ValidateSet\(''gui'',''legacy'',''test'',''rebuild''\)\]') 'Run-GPTOPT.ps1 mode contract mismatch.'
+Assert ($runText -match '\[string\]\$Mode\s*=\s*''gui''') 'Run-GPTOPT.ps1 must default to GUI mode.'
 Assert ($runText -match 'Start-NativeApp') 'Run-GPTOPT.ps1 must launch the native app.'
 Assert ($runText -match 'Build-GPTOPTApp\.ps1') 'Run-GPTOPT.ps1 must invoke the native build path when required.'
 Assert ($runText -match 'agent/native-desktop-app') 'Run-GPTOPT.ps1 must update from the native-app branch.'
 Assert ($runText -match 'build-commit\.txt') 'Run-GPTOPT.ps1 must use a commit-based build stamp.'
-Assert ($runText -notmatch "(?i)'(start|stop|status|settings)'\s*\{") 'Run-GPTOPT.ps1 exposes removed normal-user modes.'
+Assert ($runText -notmatch '(?i)''(start|stop|status|settings)''\s*\{') 'Run-GPTOPT.ps1 exposes removed normal-user modes.'
 
 $buildText = Get-Content -Raw -LiteralPath $BuildPath
 Assert ($buildText -match 'dotnet\.Source build') 'Native build command missing.'
