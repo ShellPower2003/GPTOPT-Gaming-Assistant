@@ -78,7 +78,7 @@ Assert ($runText -match '\[string\]\$Mode\s*=\s*''gui''') 'Run-GPTOPT.ps1 must d
 Assert ($runText -match 'Start-NativeApp') 'Run-GPTOPT.ps1 must launch the native app.'
 Assert ($runText -match 'Build-GPTOPTApp\.ps1') 'Run-GPTOPT.ps1 must invoke the native build path when required.'
 Assert ($runText -match 'agent/native-desktop-app') 'Run-GPTOPT.ps1 must update from the native-app branch.'
-Assert ($runText -match 'build-commit\.txt') 'Run-GPTOPT.ps1 must use a commit-based build stamp.'
+Assert ($runText -match '\.gptopt-build-commit') 'Run-GPTOPT.ps1 must use a commit-based build stamp.'
 Assert ($runText -notmatch '(?i)''(start|stop|status|settings)''\s*\{') 'Run-GPTOPT.ps1 exposes removed normal-user modes.'
 
 $buildText = Get-Content -Raw -LiteralPath $BuildPath
