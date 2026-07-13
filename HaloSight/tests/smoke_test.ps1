@@ -70,20 +70,21 @@ Assert ($buildText -match 'dotnet\.Source build') 'Native build command missing.
 Assert ($buildText -match 'dotnet\.Source publish') 'Native publish command missing.'
 Assert ($buildText -notmatch 'Set-Content\s+-LiteralPath\s+\$Xaml') 'Build script must not rewrite tracked XAML.'
 
+$auditText = Get-Content -Raw -LiteralPath $AuditScriptPath
+Assert ($auditText -match 'collector_version=''0\.4\.1''') 'Audit collector version must be 0.4.1.'
+Assert ($auditText -match 'function Get-ControllerEventSummary') 'Controller-specific event classification is missing.'
+Assert ($auditText -match 'controller_fault_evidence') 'Controller evidence must be persisted and published.'
+Assert ($auditText -match 'Confirmed controller/USB fault events') 'Published audit must distinguish confirmed controller faults.'
+Assert ($auditText -notmatch '\$controllerFaults=Get-EventCount') 'Broad controller provider counting regression detected.'
+
 [xml](Get-Content -Raw -LiteralPath $XamlPath) | Out-Null
 $xamlText = Get-Content -Raw -LiteralPath $XamlPath
 foreach($requiredHandler in @('PrepareForHalo_Click','RunTargetedDiagnostics_Click','AnalyzeLatestSession_Click','CompareCaptures_Click','OpenPresentMonRobust_Click','PublishAuditButton_Click','OpenRollbackManager_Click')){
     Assert ($xamlText -match ('Click="' + [regex]::Escape($requiredHandler) + '"')) "Required native handler $requiredHandler is not wired in XAML."
 }
 
-$runtimePaths = @(
-    $LauncherPath,
-    $RunGptOptPath,
-    $BuildPath,
-    $AuditScriptPath
-) + @(Get-ChildItem -LiteralPath (Join-Path $Root 'scripts') -Recurse -File -Include '*.ps1','*.cmd' | Select-Object -ExpandProperty FullName)
+$runtimePaths = @($LauncherPath,$RunGptOptPath,$BuildPath,$AuditScriptPath) + @(Get-ChildItem -LiteralPath (Join-Path $Root 'scripts') -Recurse -File -Include '*.ps1','*.cmd' | Select-Object -ExpandProperty FullName)
 $runtimeText = ($runtimePaths | Sort-Object -Unique | ForEach-Object { Get-Content -Raw -LiteralPath $_ }) -join "`n"
-
 Assert ($runtimeText -notmatch '(?i)\btaskkill\b') 'taskkill call found in shipped runtime.'
 Assert ($runtimeText -notmatch '(?i)(chrome|msedge|browser)[\s\S]{0,160}(CloseMainWindow|Kill\(|taskkill|Stop-Process)') 'Browser closure targeting found.'
 Assert ($runtimeText -notmatch '(?i)HaloInfinite[\s\S]{0,160}\.PriorityClass\s*=') 'HaloInfinite priority assignment found.'
