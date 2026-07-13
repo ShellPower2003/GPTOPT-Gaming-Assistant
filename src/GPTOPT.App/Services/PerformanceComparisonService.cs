@@ -5,6 +5,37 @@ namespace GPTOPT.App.Services;
 
 public sealed class PerformanceComparisonService
 {
+    public string Analyze(string path)
+    {
+        var values = ReadFrameTimes(path);
+        if (values.Count < 30)
+            throw new InvalidDataException("The file must contain at least 30 valid frame-time samples.");
+
+        var summary = Summarize(values);
+        var sb = new StringBuilder();
+        sb.AppendLine("GPTOPT LATEST SESSION ANALYSIS");
+        sb.AppendLine();
+        sb.AppendLine($"Capture: {Path.GetFileName(path)}");
+        sb.AppendLine($"Frames: {values.Count:N0}");
+        sb.AppendLine($"Average FPS: {summary.AverageFps:F1}");
+        sb.AppendLine($"1% low FPS: {summary.OnePercentLow:F1}");
+        sb.AppendLine($"Mean frame time: {summary.MeanMs:F3} ms");
+        sb.AppendLine($"P95 frame time: {summary.P95Ms:F3} ms");
+        sb.AppendLine($"P99 frame time: {summary.P99Ms:F3} ms");
+        sb.AppendLine($"Frame-time standard deviation: {summary.StdDevMs:F3} ms");
+        sb.AppendLine();
+        sb.AppendLine("INTERPRETATION");
+        sb.AppendLine(summary.P99Ms <= summary.MeanMs * 1.6
+            ? "Frame-time tail is reasonably controlled relative to the mean."
+            : "P99 is elevated relative to the mean; inspect the graph for hitches or scene changes before drawing conclusions.");
+        sb.AppendLine(summary.StdDevMs <= summary.MeanMs * 0.35
+            ? "Frame-time variance is comparatively tight."
+            : "Frame-time variance is broad; repeat the same scene and check background activity, loading, or capture boundaries.");
+        sb.AppendLine();
+        sb.AppendLine("A single run describes the session but does not prove that a tweak helped. Use an equivalent prior capture for a keep-or-rollback verdict.");
+        return sb.ToString();
+    }
+
     public string Compare(string beforePath, string afterPath)
     {
         var before = ReadFrameTimes(beforePath);
