@@ -42,9 +42,15 @@ $oldButton = '<Button Grid.Column="1" Content="Run Session Check" Click="RunTarg
 $newButton = '<Button Grid.Column="1" Content="Prepare for Halo" Click="PrepareForHalo_Click" Style="{StaticResource PrimaryButton}" Padding="24,12"/>'
 if ($xamlText.Contains($oldButton)) { $xamlText = $xamlText.Replace($oldButton, $newButton) }
 $xamlText = $xamlText.Replace('Click="OpenPresentMon_Click"','Click="OpenPresentMonRobust_Click"')
+
+$oldAttention = '<GroupBox Header="What needs attention" Grid.Row="1" Grid.Column="1" Margin="8,8,0,0"><TextBlock x:Name="HealthText" Margin="8" TextWrapping="Wrap"/></GroupBox>'
+$newAttention = '<GroupBox Header="What needs attention" Grid.Row="1" Grid.Column="1" Margin="8,8,0,0"><StackPanel Margin="8"><TextBlock x:Name="HealthText" TextWrapping="Wrap"/><Button Content="View What Needs Attention" Click="RunTargetedDiagnostics_Click" HorizontalAlignment="Left" Margin="0,12,0,0" Style="{StaticResource PrimaryButton}"/></StackPanel></GroupBox>'
+if ($xamlText.Contains($oldAttention)) { $xamlText = $xamlText.Replace($oldAttention, $newAttention) }
+
 Set-Content -LiteralPath $Xaml -Value $xamlText -Encoding UTF8
 if (-not $xamlText.Contains('Click="PrepareForHalo_Click"')) { throw 'Prepare for Halo button is missing from MainWindow.xaml.' }
 if (-not $xamlText.Contains('Click="OpenPresentMonRobust_Click"')) { throw 'Robust PresentMon handler is not wired in MainWindow.xaml.' }
+if (-not $xamlText.Contains('Content="View What Needs Attention"')) { throw 'Needs-attention drill-down button is missing from MainWindow.xaml.' }
 
 Set-BuildProgress 12 'Validating XAML'
 try { [xml](Get-Content -Raw -LiteralPath $Xaml) | Out-Null }
