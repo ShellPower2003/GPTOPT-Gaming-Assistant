@@ -17,6 +17,24 @@ function Get-Sha256Text { param([string]$Text) $sha=[Security.Cryptography.SHA25
 function ConvertTo-PlainRecords { param([object[]]$InputObject,[string[]]$Property) @(foreach($item in @($InputObject)){if($null -eq $item){continue};$record=[ordered]@{};foreach($name in $Property){$record[$name]=$item.$name};[pscustomobject]$record}) }
 function Get-EventCount { param([string]$Log,[datetime]$Since,[string[]]$Providers,[int[]]$Ids) @((Get-WinEvent -FilterHashtable @{LogName=$Log;StartTime=$Since;Level=1,2,3} -ErrorAction SilentlyContinue) | Where-Object { ($Providers -contains $_.ProviderName) -or ($Ids.Count -gt 0 -and $Ids -contains $_.Id) }).Count }
 
+function Get-ControllerEventSummary {
+    param([datetime]$Since)
+    $providers=@('Microsoft-Windows-Kernel-PnP','Kernel-PnP','USBHUB3','Microsoft-Windows-DriverFrameworks-UserMode')
+    $ids=@(2003,2100,2102,219)
+    $devicePattern='VID_045E&PID_028E|FLYDIGI_VADER4|Flydigi|Vader|GeniTech Virtual Gamepad|Xbox 360 Controller|HID-compliant game controller|GameControllerService'
+    $genericPattern='(?i)\b(USB|HID|controller|gamepad|joystick)\b'
+    $rows=@()
+    foreach($e in @(Get-WinEvent -FilterHashtable @{LogName='System';StartTime=$Since;Level=1,2,3} -ErrorAction SilentlyContinue)){
+        if(($providers -notcontains $e.ProviderName) -or ($ids -notcontains $e.Id)){continue}
+        $message=[string]$e.Message
+        if($message -notmatch $devicePattern -and $message -notmatch $genericPattern){continue}
+        $device=if($message -match $devicePattern){$matches[0]}elseif($message -match $genericPattern){$matches[0]}else{'Controller/USB'}
+        $rows += [pscustomobject]@{Provider=$e.ProviderName;EventId=$e.Id;Device=$device;Time=$e.TimeCreated}
+    }
+    $evidence=@($rows | Sort-Object Time -Descending | Select-Object -First 8 | ForEach-Object { "Event $($_.EventId) $($_.Provider) - $($_.Device) at $($_.Time.ToString('s'))" })
+    [pscustomobject]@{count=$rows.Count;evidence=$evidence;latest=$(if($rows.Count){($rows|Sort-Object Time -Descending|Select-Object -First 1).Time}else{$null})}
+}
+
 function Get-CrashSummary {
     param([datetime]$Since)
     $gamingPattern='HaloInfinite|CapFrameX|PresentMon|RTSS|MSIAfterburner|GameControllerService|SteelSeries|NVIDIA|nvcontainer|Flydigi|SpaceStation'
@@ -29,14 +47,8 @@ function Get-CrashSummary {
         if(-not $name){$name=$e.ProviderName}
         $rows += [pscustomobject]@{Application=$name;Time=$e.TimeCreated;Relevant=($name -match $gamingPattern)}
     }
-    $gaming=@($rows|Where-Object Relevant)
-    $background=@($rows|Where-Object {-not $_.Relevant})
-    [pscustomobject]@{
-        gaming_count=$gaming.Count
-        background_count=$background.Count
-        gaming_apps=@($gaming|Group-Object Application|Sort-Object Count -Descending|ForEach-Object{"$($_.Name) ($($_.Count))"})
-        background_apps=@($background|Group-Object Application|Sort-Object Count -Descending|Select-Object -First 8|ForEach-Object{"$($_.Name) ($($_.Count))"})
-    }
+    $gaming=@($rows|Where-Object Relevant);$background=@($rows|Where-Object {-not $_.Relevant})
+    [pscustomobject]@{gaming_count=$gaming.Count;background_count=$background.Count;gaming_apps=@($gaming|Group-Object Application|Sort-Object Count -Descending|ForEach-Object{"$($_.Name) ($($_.Count))"});background_apps=@($background|Group-Object Application|Sort-Object Count -Descending|Select-Object -First 8|ForEach-Object{"$($_.Name) ($($_.Count))"})}
 }
 
 function ConvertTo-SafeMarkdown {
@@ -44,57 +56,30 @@ function ConvertTo-SafeMarkdown {
     @(
         '# GPTOPT Latest Sanitized PC Audit','',
         '> Machine-generated. The full diagnostic archive remains local and is not uploaded.','',
-        "- Audit ID: ``$($Report.audit_id)``",
-        "- Collected UTC: ``$($Report.collected_utc)``",
-        "- Machine key: ``$($Report.machine_key)``",
-        "- Collector: ``$($Report.collector_version)``",'',
-        '## Gaming readiness',
-        "- Status: **$($Report.readiness.status)**",
-        "- Score: **$($Report.readiness.score)/100**",
-        "- Summary: $($Report.readiness.summary)",
-        "- Blockers: $($Report.readiness.blockers -join '; ')",
-        "- Warnings: $($Report.readiness.warnings -join '; ')",
-        "- Passed checks: $($Report.readiness.passed_checks -join '; ')",'',
-        '## Platform',
-        "- Windows: $($Report.platform.windows)","- Build: $($Report.platform.build)","- BIOS: $($Report.platform.bios)","- CPU: $($Report.platform.cpu)","- GPU: $($Report.platform.gpu)","- Memory: $($Report.platform.memory_gb) GB","- Display: $($Report.platform.display)",'',
-        '## Gaming configuration',
-        "- Active power plan: $($Report.gaming.power_plan)","- Game Mode: $($Report.gaming.game_mode)","- Game DVR: $($Report.gaming.game_dvr)","- HAGS registry value: $($Report.gaming.hags)","- MPO override: $($Report.gaming.mpo_override)",'',
-        '## Devices and software',
-        "- Flydigi/Vader detected: $($Report.devices.flydigi_detected)","- Flydigi evidence: $($Report.devices.flydigi_evidence -join ', ')","- NVIDIA driver: $($Report.devices.nvidia_driver)","- Active wired adapters: $($Report.devices.active_wired_adapters)","- Active Wi-Fi adapters: $($Report.devices.active_wifi_adapters)","- GPTOPT-related processes: $($Report.devices.gptopt_processes -join ', ')",'',
-        '## Gaming-relevant health',
-        "- WHEA events: $($Report.health.whea_count)","- Display/GPU reset events: $($Report.health.display_reset_count)","- Storage fault events: $($Report.health.storage_fault_count)","- Controller/USB fault events: $($Report.health.controller_fault_count)","- Gaming-related crashes: $($Report.health.gaming_crash_count)","- Gaming crash apps: $($Report.health.gaming_crash_apps -join ', ')","- Background/non-gaming crashes: $($Report.health.background_crash_count)",'',
-        '## Actionable state',
-        "- Problem devices: $($Report.health.problem_device_count)","- Problem device names: $($Report.health.problem_device_names -join ', ')","- Pending reboot sources: $($Report.health.pending_reboot_sources -join ', ')","- Pending rename files: $($Report.health.pending_rename_files -join ', ')","- System drive free: $($Report.health.system_drive_free_gb) GB",'',
+        "- Audit ID: ``$($Report.audit_id)``","- Collected UTC: ``$($Report.collected_utc)``","- Machine key: ``$($Report.machine_key)``","- Collector: ``$($Report.collector_version)``",'',
+        '## Gaming readiness',"- Status: **$($Report.readiness.status)**","- Score: **$($Report.readiness.score)/100**","- Summary: $($Report.readiness.summary)","- Blockers: $($Report.readiness.blockers -join '; ')","- Warnings: $($Report.readiness.warnings -join '; ')","- Passed checks: $($Report.readiness.passed_checks -join '; ')",'',
+        '## Platform',"- Windows: $($Report.platform.windows)","- Build: $($Report.platform.build)","- BIOS: $($Report.platform.bios)","- CPU: $($Report.platform.cpu)","- GPU: $($Report.platform.gpu)","- Memory: $($Report.platform.memory_gb) GB","- Display: $($Report.platform.display)",'',
+        '## Gaming configuration',"- Active power plan: $($Report.gaming.power_plan)","- Game Mode: $($Report.gaming.game_mode)","- Game DVR: $($Report.gaming.game_dvr)","- HAGS registry value: $($Report.gaming.hags)","- MPO override: $($Report.gaming.mpo_override)",'',
+        '## Devices and software',"- Flydigi/Vader detected: $($Report.devices.flydigi_detected)","- Flydigi evidence: $($Report.devices.flydigi_evidence -join ', ')","- NVIDIA driver: $($Report.devices.nvidia_driver)","- Active wired adapters: $($Report.devices.active_wired_adapters)","- Active Wi-Fi adapters: $($Report.devices.active_wifi_adapters)","- GPTOPT-related processes: $($Report.devices.gptopt_processes -join ', ')",'',
+        '## Gaming-relevant health',"- WHEA events: $($Report.health.whea_count)","- Display/GPU reset events: $($Report.health.display_reset_count)","- Storage fault events: $($Report.health.storage_fault_count)","- Confirmed controller/USB fault events: $($Report.health.controller_fault_count)","- Controller/USB evidence: $($Report.health.controller_fault_evidence -join '; ')","- Gaming-related crashes: $($Report.health.gaming_crash_count)","- Gaming crash apps: $($Report.health.gaming_crash_apps -join ', ')","- Background/non-gaming crashes: $($Report.health.background_crash_count)",'',
+        '## Actionable state',"- Problem devices: $($Report.health.problem_device_count)","- Problem device names: $($Report.health.problem_device_names -join ', ')","- Pending reboot sources: $($Report.health.pending_reboot_sources -join ', ')","- Pending rename files: $($Report.health.pending_rename_files -join ', ')","- System drive free: $($Report.health.system_drive_free_gb) GB",'',
         'Raw paths, account names, addresses, identifiers, serial numbers, and full event contents are intentionally excluded.'
     ) -join "`n"
 }
 
 function Publish-LatestAuditIssue {
     param([string]$Repo,[string]$Title,[string]$Body,[string]$MachineKey,[string]$AuditId)
-    $gh=Get-Command gh.exe -ErrorAction SilentlyContinue
-    if(-not $gh){throw 'GitHub CLI (gh.exe) is required for Publish.'}
-    & $gh.Source auth status --hostname github.com *> $null
-    if($LASTEXITCODE -ne 0){throw 'GitHub CLI is not authenticated. Run gh auth login.'}
-    $search=& $gh.Source issue list --repo $Repo --state open --search ("[GPTOPT-AUDIT:{0}] in:title" -f $MachineKey) --json number,title --limit 10
-    if($LASTEXITCODE -ne 0){throw 'Unable to query GPTOPT audit issues.'}
-    $existing=@($search|ConvertFrom-Json)|Where-Object title -eq $Title|Select-Object -First 1
+    $gh=Get-Command gh.exe -ErrorAction SilentlyContinue;if(-not $gh){throw 'GitHub CLI (gh.exe) is required for Publish.'}
+    & $gh.Source auth status --hostname github.com *> $null;if($LASTEXITCODE -ne 0){throw 'GitHub CLI is not authenticated. Run gh auth login.'}
+    $search=& $gh.Source issue list --repo $Repo --state open --label audit-latest --json number,title --limit 20;if($LASTEXITCODE -ne 0){throw 'Unable to query GPTOPT audit issues.'}
+    $existing=@($search|ConvertFrom-Json)|Where-Object {$_.title -match 'Latest PC Audit'}|Select-Object -First 1
     $temp=Join-Path $env:TEMP ("gptopt-audit-{0}.md" -f [guid]::NewGuid().ToString('N'))
     try{
         Set-Content -LiteralPath $temp -Value $Body -Encoding UTF8
-        if($existing){
-            & $gh.Source issue edit $existing.number --repo $Repo --body-file $temp
-            if($LASTEXITCODE -ne 0){throw 'Unable to update audit issue.'}
-            $number=$existing.number
-        }else{
-            $url=& $gh.Source issue create --repo $Repo --title $Title --body-file $temp
-            if($LASTEXITCODE -ne 0){throw 'Unable to create audit issue.'}
-            $number=($url|Select-String -Pattern '(\d+)$').Matches[0].Groups[1].Value
-        }
-        $published=& $gh.Source issue view $number --repo $Repo --json body,url
-        if($LASTEXITCODE -ne 0){throw 'Audit issue was written but could not be verified.'}
-        $verified=$published|ConvertFrom-Json
-        if($verified.body -notmatch [regex]::Escape($AuditId)){throw "Publish verification failed: GitHub issue does not contain $AuditId"}
-        return $verified.url
+        if($existing){& $gh.Source issue edit $existing.number --repo $Repo --title $Title --body-file $temp;if($LASTEXITCODE -ne 0){throw 'Unable to update audit issue.'};$number=$existing.number}
+        else{$url=& $gh.Source issue create --repo $Repo --title $Title --label audit-latest --body-file $temp;if($LASTEXITCODE -ne 0){throw 'Unable to create audit issue.'};$number=($url|Select-String -Pattern '(\d+)$').Matches[0].Groups[1].Value}
+        $published=& $gh.Source issue view $number --repo $Repo --json body,url;if($LASTEXITCODE -ne 0){throw 'Audit issue was written but could not be verified.'}
+        $verified=$published|ConvertFrom-Json;if($verified.body -notmatch [regex]::Escape($AuditId)){throw "Publish verification failed: GitHub issue does not contain $AuditId"};return $verified.url
     }finally{Remove-Item $temp -Force -ErrorAction SilentlyContinue}
 }
 
@@ -111,7 +96,7 @@ $flydigiEvidence=@();if(@($pnp|Where-Object{$_.FriendlyName -match 'Flydigi|Vade
 $nvidia=Get-CimInstance Win32_PnPSignedDriver|Where-Object DeviceName -match 'NVIDIA.*(RTX|GeForce)'|Select-Object -First 1;$net=@(Get-NetAdapter -ErrorAction SilentlyContinue);$wiredCount=@($net|Where-Object{$_.Status -eq 'Up' -and $_.Name -notmatch 'Wi-Fi|Wireless'}).Count;$wifiCount=@($net|Where-Object{$_.Status -eq 'Up' -and $_.Name -match 'Wi-Fi|Wireless'}).Count
 Set-GPTOPTProgress 56 'Classifying gaming-relevant health signals'
 $since=(Get-Date).AddHours(-72);$systemErrors=@(Get-WinEvent -FilterHashtable @{LogName='System';Level=1,2;StartTime=$since} -ErrorAction SilentlyContinue).Count;$appErrors=@(Get-WinEvent -FilterHashtable @{LogName='Application';Level=1,2;StartTime=$since} -ErrorAction SilentlyContinue).Count
-$whea=Get-EventCount 'System' $since @('Microsoft-Windows-WHEA-Logger') @();$displayResets=Get-EventCount 'System' $since @('Display','nvlddmkm') @(4101);$storageFaults=Get-EventCount 'System' $since @('disk','stornvme','storahci','Ntfs') @(7,11,51,55,129,153);$controllerFaults=Get-EventCount 'System' $since @('Microsoft-Windows-Kernel-PnP','Kernel-PnP','USBHUB3','Microsoft-Windows-DriverFrameworks-UserMode') @(2003,2100,2102,219)
+$whea=Get-EventCount 'System' $since @('Microsoft-Windows-WHEA-Logger') @();$displayResets=Get-EventCount 'System' $since @('Display','nvlddmkm') @(4101);$storageFaults=Get-EventCount 'System' $since @('disk','stornvme','storahci','Ntfs') @(7,11,51,55,129,153);$controllerSummary=Get-ControllerEventSummary $since;$controllerFaults=$controllerSummary.count
 $crashSummary=Get-CrashSummary $since
 $problem=@($pnp|Where-Object{$_.Present -ne $false -and $_.Status -notin 'OK','Unknown' -and $_.Problem -notin 0,$null});$problemNames=@($problem|ForEach-Object{$_.FriendlyName}|Where-Object{$_}|Sort-Object -Unique)
 $rename=(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue).PendingFileRenameOperations;$renameFiles=@($rename|Where-Object{$_}|ForEach-Object{Split-Path $_ -Leaf}|Where-Object{$_}|Sort-Object -Unique)
@@ -123,19 +108,16 @@ if($displayResets -gt 0){$blockers+="$displayResets GPU/display reset event(s)"}
 if($storageFaults -gt 0){$blockers+="$storageFaults storage fault event(s)"}else{$passed+='No storage timeouts or faults'}
 if($problem.Count -gt 0){$blockers+="$($problem.Count) active problem device(s): $($problemNames -join ', ')"}else{$passed+='No active problem devices'}
 if($crashSummary.gaming_count -gt 0){$warnings+="$($crashSummary.gaming_count) gaming-related application crash(es): $($crashSummary.gaming_apps -join ', ')"}else{$passed+='No gaming-related application crashes'}
-if($controllerFaults -gt 0){$warnings+="$controllerFaults controller/USB event(s) need review"}else{$passed+='No controller/USB fault events'}
+if($controllerFaults -gt 0){$warnings+="$controllerFaults confirmed controller/USB fault event(s): $($controllerSummary.evidence -join '; ')"}else{$passed+='No confirmed controller/USB fault events'}
 if(-not $flydigi){$warnings+='Flydigi/Vader path not detected'}else{$passed+='Flydigi/Vader path detected'}
 if($wiredCount -eq 0){$warnings+='No active wired network adapter'}else{$passed+='Wired network active'}
-if($pendingSources.Count -gt 0){
-    if($pendingSources.Count -eq 1 -and $renameFiles -contains 'gamingservicesproxy_11.dll.0'){$warnings+='Stale Gaming Services rename entry; reboot or targeted cleanup recommended'}
-    else{$warnings+="Pending reboot: $($pendingSources -join ', ')"}
-}else{$passed+='No pending reboot'}
+if($pendingSources.Count -gt 0){if($pendingSources.Count -eq 1 -and $renameFiles -contains 'gamingservicesproxy_11.dll.0'){$warnings+='Stale Gaming Services rename entry; reboot or targeted cleanup recommended'}else{$warnings+="Pending reboot: $($pendingSources -join ', ')"}}else{$passed+='No pending reboot'}
 $score=100-($blockers.Count*18)-([math]::Min($warnings.Count*4,20));$score=[math]::Max(0,[math]::Min(100,$score));$status=if($blockers.Count -gt 0){'NOT READY'}elseif($warnings.Count -gt 0){'READY WITH MINOR ISSUES'}else{'READY'};$summary=if($blockers.Count -gt 0){'Resolve the blocking hardware or driver findings before judging game performance.'}elseif($warnings.Count -gt 0){'Safe to play. Review the listed minor issues when convenient.'}else{'Core gaming, hardware, controller, and network checks passed.'}
 Set-GPTOPTProgress 70 'Writing private and sanitized snapshots'
-$private=[ordered]@{audit_id=$auditId;collected_utc=(Get-Date).ToUniversalTime().ToString('o');problem_devices=ConvertTo-PlainRecords $problem @('Class','FriendlyName','Status','Problem');pending_reboot_sources=$pendingSources;pending_rename_files=$renameFiles;flydigi_evidence=$flydigiEvidence;gaming_crash_apps=$crashSummary.gaming_apps;background_crash_apps=$crashSummary.background_apps}
+$private=[ordered]@{audit_id=$auditId;collected_utc=(Get-Date).ToUniversalTime().ToString('o');problem_devices=ConvertTo-PlainRecords $problem @('Class','FriendlyName','Status','Problem');pending_reboot_sources=$pendingSources;pending_rename_files=$renameFiles;flydigi_evidence=$flydigiEvidence;controller_fault_evidence=$controllerSummary.evidence;gaming_crash_apps=$crashSummary.gaming_apps;background_crash_apps=$crashSummary.background_apps}
 $private|ConvertTo-Json -Depth 8|Set-Content (Join-Path $rawDir 'private-snapshot.json') -Encoding UTF8
 $displayText=if($display){"$($display.CurrentHorizontalResolution)x$($display.CurrentVerticalResolution) @ $($display.CurrentRefreshRate) Hz"}else{'Unavailable'};$text={param($v)if($null -eq $v){'Not set'}else{[string]$v}}
-$safe=[pscustomobject]@{schema_version=2;collector_version='0.4.0';audit_id=$auditId;collected_utc=(Get-Date).ToUniversalTime().ToString('o');machine_key=$machineKey;platform=[pscustomobject]@{windows=$os.Caption;build=$os.BuildNumber;bios=("{0} {1}" -f $bios.Manufacturer,$bios.SMBIOSBIOSVersion);cpu=$cpu.Name.Trim();gpu=(($gpus.Name)-join '; ');memory_gb=[math]::Round($memoryBytes/1GB,1);display=$displayText};gaming=[pscustomobject]@{power_plan=$activePower;game_mode=(& $text $gameMode);game_dvr=(& $text $gameDvr);hags=(& $text $hags);mpo_override=(& $text $mpo)};devices=[pscustomobject]@{flydigi_detected=$flydigi;flydigi_evidence=$flydigiEvidence;nvidia_driver=$(if($nvidia){$nvidia.DriverVersion}else{'Not detected'});active_wired_adapters=$wiredCount;active_wifi_adapters=$wifiCount;gptopt_processes=$running};health=[pscustomobject]@{system_error_count=$systemErrors;application_error_count=$appErrors;problem_device_count=$problem.Count;problem_device_names=$problemNames;pending_reboot_count=$pendingSources.Count;pending_reboot_sources=$pendingSources;pending_rename_files=$renameFiles;system_drive_free_gb=[math]::Round($systemDrive.FreeSpace/1GB,1);whea_count=$whea;display_reset_count=$displayResets;storage_fault_count=$storageFaults;controller_fault_count=$controllerFaults;gaming_crash_count=$crashSummary.gaming_count;background_crash_count=$crashSummary.background_count;gaming_crash_apps=$crashSummary.gaming_apps;background_crash_apps=$crashSummary.background_apps};readiness=[pscustomobject]@{score=$score;status=$status;summary=$summary;blockers=$blockers;warnings=$warnings;passed_checks=$passed}}
+$safe=[pscustomobject]@{schema_version=3;collector_version='0.4.1';audit_id=$auditId;collected_utc=(Get-Date).ToUniversalTime().ToString('o');machine_key=$machineKey;platform=[pscustomobject]@{windows=$os.Caption;build=$os.BuildNumber;bios=("{0} {1}" -f $bios.Manufacturer,$bios.SMBIOSBIOSVersion);cpu=$cpu.Name.Trim();gpu=(($gpus.Name)-join '; ');memory_gb=[math]::Round($memoryBytes/1GB,1);display=$displayText};gaming=[pscustomobject]@{power_plan=$activePower;game_mode=(& $text $gameMode);game_dvr=(& $text $gameDvr);hags=(& $text $hags);mpo_override=(& $text $mpo)};devices=[pscustomobject]@{flydigi_detected=$flydigi;flydigi_evidence=$flydigiEvidence;nvidia_driver=$(if($nvidia){$nvidia.DriverVersion}else{'Not detected'});active_wired_adapters=$wiredCount;active_wifi_adapters=$wifiCount;gptopt_processes=$running};health=[pscustomobject]@{system_error_count=$systemErrors;application_error_count=$appErrors;problem_device_count=$problem.Count;problem_device_names=$problemNames;pending_reboot_count=$pendingSources.Count;pending_reboot_sources=$pendingSources;pending_rename_files=$renameFiles;system_drive_free_gb=[math]::Round($systemDrive.FreeSpace/1GB,1);whea_count=$whea;display_reset_count=$displayResets;storage_fault_count=$storageFaults;controller_fault_count=$controllerFaults;controller_fault_evidence=$controllerSummary.evidence;gaming_crash_count=$crashSummary.gaming_count;background_crash_count=$crashSummary.background_count;gaming_crash_apps=$crashSummary.gaming_apps;background_crash_apps=$crashSummary.background_apps};readiness=[pscustomobject]@{score=$score;status=$status;summary=$summary;blockers=$blockers;warnings=$warnings;passed_checks=$passed}}
 $safeJson=Join-Path $runDir 'GPTOPT-SanitizedReport.json';$safeMd=Join-Path $runDir 'GPTOPT-SanitizedReport.md';$safe|ConvertTo-Json -Depth 8|Set-Content $safeJson -Encoding UTF8;$markdown=ConvertTo-SafeMarkdown $safe;Set-Content $safeMd -Value $markdown -Encoding UTF8
 Set-GPTOPTProgress 84 'Updating latest local audit pointer'
 $latest=Join-Path $AuditRoot 'latest';if(Test-Path $latest){Remove-Item $latest -Recurse -Force};New-Item -ItemType Directory $latest -Force|Out-Null;Copy-Item $safeJson,$safeMd -Destination $latest -Force;@{audit_id=$auditId;run_directory=$runDir;collected_utc=$safe.collected_utc}|ConvertTo-Json|Set-Content (Join-Path $AuditRoot 'latest.json') -Encoding UTF8
