@@ -36,17 +36,15 @@ if ([version]($version.Split('-')[0]) -lt [version]'8.0.0') {
 if (-not (Test-Path $Project)) { throw "Project not found: $Project" }
 if (-not (Test-Path $Xaml)) { throw "XAML not found: $Xaml" }
 
-Set-BuildProgress 9 'Ensuring Prepare for Halo workflow is visible'
+Set-BuildProgress 9 'Wiring current application workflows'
 $xamlText = Get-Content -Raw -LiteralPath $Xaml
 $oldButton = '<Button Grid.Column="1" Content="Run Session Check" Click="RunTargetedDiagnostics_Click" Style="{StaticResource PrimaryButton}" Padding="24,12"/>'
 $newButton = '<Button Grid.Column="1" Content="Prepare for Halo" Click="PrepareForHalo_Click" Style="{StaticResource PrimaryButton}" Padding="24,12"/>'
-if ($xamlText.Contains($oldButton)) {
-    $xamlText = $xamlText.Replace($oldButton, $newButton)
-    Set-Content -LiteralPath $Xaml -Value $xamlText -Encoding UTF8
-}
-if (-not $xamlText.Contains('Click="PrepareForHalo_Click"')) {
-    throw 'Prepare for Halo button could not be found or injected into MainWindow.xaml.'
-}
+if ($xamlText.Contains($oldButton)) { $xamlText = $xamlText.Replace($oldButton, $newButton) }
+$xamlText = $xamlText.Replace('Click="OpenPresentMon_Click"','Click="OpenPresentMonRobust_Click"')
+Set-Content -LiteralPath $Xaml -Value $xamlText -Encoding UTF8
+if (-not $xamlText.Contains('Click="PrepareForHalo_Click"')) { throw 'Prepare for Halo button is missing from MainWindow.xaml.' }
+if (-not $xamlText.Contains('Click="OpenPresentMonRobust_Click"')) { throw 'Robust PresentMon handler is not wired in MainWindow.xaml.' }
 
 Set-BuildProgress 12 'Validating XAML'
 try { [xml](Get-Content -Raw -LiteralPath $Xaml) | Out-Null }
