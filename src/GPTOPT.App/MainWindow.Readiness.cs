@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -44,7 +45,7 @@ public partial class MainWindow
         var lines = new List<string>
         {
             $"Verdict: {readiness.Status}",
-            $"Gaming-relevant: WHEA {report.Health.WheaCount} • GPU resets {report.Health.DisplayResetCount} • Storage {report.Health.StorageFaultCount} • Controller/USB {report.Health.ControllerFaultCount} • Gaming crashes {report.Health.GamingCrashCount}"
+            $"Gaming-relevant: WHEA {report.Health.WheaCount} • GPU resets {report.Health.DisplayResetCount} • Storage {report.Health.StorageFaultCount} • Confirmed controller/USB {report.Health.ControllerFaultCount} • Gaming crashes {report.Health.GamingCrashCount}"
         };
         if (readiness.Blockers.Length > 0)
         {
@@ -56,12 +57,42 @@ public partial class MainWindow
             lines.Add("Review:");
             lines.AddRange(readiness.Warnings.Select(x => "• " + x));
         }
+
+        var controllerEvidence = LoadControllerEvidence();
+        if (controllerEvidence.Length > 0)
+        {
+            lines.Add("Controller evidence:");
+            lines.AddRange(controllerEvidence.Select(x => "• " + x));
+        }
+
         if (readiness.Blockers.Length == 0 && readiness.Warnings.Length == 0)
             lines.Add("No gaming-relevant issues detected.");
         HealthText.Text = string.Join("\n", lines);
 
         StatusText.Text = readiness.Status == "NOT READY" ? "Resolve blockers before performance testing" : "Gaming readiness evaluated";
         StatusDetailText.Text = $"{readiness.Status} • Audit {report.AuditId}";
+    }
+
+    private string[] LoadControllerEvidence()
+    {
+        try
+        {
+            var path = Path.Combine(_auditService.AuditRoot, "latest", "GPTOPT-SanitizedReport.json");
+            if (!File.Exists(path)) return [];
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            if (!document.RootElement.TryGetProperty("health", out var health) ||
+                !health.TryGetProperty("controller_fault_evidence", out var evidence) ||
+                evidence.ValueKind != JsonValueKind.Array) return [];
+            return evidence.EnumerateArray()
+                .Select(x => x.ToString())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Take(5)
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     private static ReadinessInfo NormalizeReadiness(AuditReport report)
