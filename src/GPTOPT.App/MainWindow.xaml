@@ -91,7 +91,7 @@
             <UniformGrid Columns="3" Margin="0,0,0,18">
               <Button Click="RunTargetedDiagnostics_Click" Padding="18" MinHeight="130"><StackPanel><TextBlock Text="HEALTH" Foreground="#70B7FF" FontSize="10" FontWeight="Bold"/><TextBlock Text="Find the real fault" FontSize="19" FontWeight="Bold" Margin="0,7,0,5"/><TextBlock Text="WHEA, GPU resets, storage, controller events, crashes, devices, and reboot sources." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/></StackPanel></Button>
               <Button Click="OpenControllerCalibration_Click" Padding="18" MinHeight="130"><StackPanel><TextBlock Text="CONTROLLER" Foreground="#B9A5FF" FontSize="10" FontWeight="Bold"/><TextBlock Text="Validate Vader 4 Pro" FontSize="19" FontWeight="Bold" Margin="0,7,0,5"/><TextBlock Text="Check stick center, range, triggers, buttons, and Windows mapping before tuning curves." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/></StackPanel></Button>
-              <Button Click="CompareCaptures_Click" Padding="18" MinHeight="130"><StackPanel><TextBlock Text="PERFORMANCE" Foreground="#66DDA5" FontSize="10" FontWeight="Bold"/><TextBlock Text="Prove a change helped" FontSize="19" FontWeight="Bold" Margin="0,7,0,5"/><TextBlock Text="Compare equivalent CapFrameX or PresentMon captures and get a keep, rollback, or inconclusive verdict." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/></StackPanel></Button>
+              <Button Click="AnalyzeLatestSession_Click" Padding="18" MinHeight="130"><StackPanel><TextBlock Text="PERFORMANCE" Foreground="#66DDA5" FontSize="10" FontWeight="Bold"/><TextBlock Text="Analyze latest session" FontSize="19" FontWeight="Bold" Margin="0,7,0,5"/><TextBlock Text="Find the newest CapFrameX or PresentMon CSV automatically and compare the prior matching capture when available." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/></StackPanel></Button>
             </UniformGrid>
             <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
               <GroupBox Header="Hardware and display" Grid.Column="0" Margin="0,0,8,8"><TextBlock x:Name="PlatformText" Margin="8" TextWrapping="Wrap"/></GroupBox>
@@ -115,7 +115,7 @@
         </TabItem>
 
         <TabItem Header="Performance">
-          <StackPanel Margin="28"><TextBlock Text="Performance proof" FontSize="31" FontWeight="Bold"/><TextBlock Text="No tweak is a win without equivalent-run evidence." Foreground="{StaticResource Muted}" Margin="0,5,0,18"/><WrapPanel><Button Content="Compare Before / After" Click="CompareCaptures_Click" Style="{StaticResource PrimaryButton}" Width="230"/><Button Content="Open PresentMon" Click="OpenPresentMonRobust_Click" Width="190"/></WrapPanel></StackPanel>
+          <StackPanel Margin="28"><TextBlock Text="Performance proof" FontSize="31" FontWeight="Bold"/><TextBlock Text="No tweak is a win without equivalent-run evidence." Foreground="{StaticResource Muted}" Margin="0,5,0,18"/><WrapPanel><Button Content="Analyze Latest Session" Click="AnalyzeLatestSession_Click" Style="{StaticResource PrimaryButton}" Width="230"/><Button Content="Compare Manually" Click="CompareCaptures_Click" Width="190"/><Button Content="Show Found Captures" Click="ShowCaptureDiscovery_Click" Width="190"/><Button Content="Open PresentMon" Click="OpenPresentMonRobust_Click" Width="190"/></WrapPanel></StackPanel>
         </TabItem>
 
         <TabItem Header="Troubleshoot">
