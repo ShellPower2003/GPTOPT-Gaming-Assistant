@@ -12,6 +12,7 @@ $BuildPath = Join-Path $RepoRoot 'Build-GPTOPTApp.ps1'
 $AuditScriptPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTAudit.ps1'
 $DiagnosticsPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\DiagnosticsService.cs'
 $RecommendationPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\RecommendationService.cs'
+$NetworkPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\NetworkQualityService.cs'
 $ProjectPath = Join-Path $RepoRoot 'src\GPTOPT.App\GPTOPT.App.csproj'
 $XamlPath = Join-Path $RepoRoot 'src\GPTOPT.App\MainWindow.xaml'
 
@@ -49,7 +50,7 @@ try{
     Remove-Item -LiteralPath $testHome -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-foreach($requiredPath in @($LauncherPath,$RunGptOptPath,$BuildPath,$AuditScriptPath,$DiagnosticsPath,$RecommendationPath,$ProjectPath,$XamlPath)){
+foreach($requiredPath in @($LauncherPath,$RunGptOptPath,$BuildPath,$AuditScriptPath,$DiagnosticsPath,$RecommendationPath,$NetworkPath,$ProjectPath,$XamlPath)){
     Assert (Test-Path -LiteralPath $requiredPath) "Required runtime file missing: $requiredPath"
 }
 
@@ -89,11 +90,18 @@ foreach($requiredFinding in @('Hardware instability requires investigation','GPU
 Assert ($recommendationText -notmatch 'Title = "Classify recent Windows errors"') 'Generic raw-error recommendation regression detected.'
 Assert ($recommendationText -match 'gamingservicesproxy_11\.dll\.0') 'Stale Gaming Services entry must be classified separately.'
 
+$networkText = Get-Content -Raw -LiteralPath $NetworkPath
+foreach($networkContract in @('GatewayQuality','InternetQuality','LossPercent','JitterMs','STABLE BASELINE','UNSTABLE','GPTOPT measures the current path')){
+    Assert ($networkText -match [regex]::Escape($networkContract)) "Network quality contract missing: $networkContract"
+}
+Assert ($networkText -notmatch '(?i)TcpAckFrequency|TCPNoDelay|NetworkThrottlingIndex') 'Unsupported registry ping tweak found in network diagnostics.'
+
 [xml](Get-Content -Raw -LiteralPath $XamlPath) | Out-Null
 $xamlText = Get-Content -Raw -LiteralPath $XamlPath
-foreach($requiredHandler in @('PrepareForHalo_Click','RunTargetedDiagnostics_Click','AnalyzeLatestSession_Click','CompareCaptures_Click','OpenPresentMonRobust_Click','PublishAuditButton_Click','OpenRollbackManager_Click')){
+foreach($requiredHandler in @('PrepareForHalo_Click','RunTargetedDiagnostics_Click','RunNetworkQuality_Click','AnalyzeLatestSession_Click','CompareCaptures_Click','OpenPresentMonRobust_Click','PublishAuditButton_Click','OpenRollbackManager_Click')){
     Assert ($xamlText -match ('Click="' + [regex]::Escape($requiredHandler) + '"')) "Required native handler $requiredHandler is not wired in XAML."
 }
+Assert ($xamlText -match '<TabItem Header="Network">') 'Dedicated Network page is missing.'
 
 $runtimePaths = @($LauncherPath,$RunGptOptPath,$BuildPath,$AuditScriptPath) + @(Get-ChildItem -LiteralPath (Join-Path $Root 'scripts') -Recurse -File -Include '*.ps1','*.cmd' | Select-Object -ExpandProperty FullName)
 $runtimeText = ($runtimePaths | Sort-Object -Unique | ForEach-Object { Get-Content -Raw -LiteralPath $_ }) -join "`n"
