@@ -30,9 +30,23 @@ GPTOPT should answer five questions without forcing the user to interpret raw Wi
 - Evidence-specific Advanced Tune cards instead of generic “recent errors” cards
 - Automatic rollback snapshots before supported changes
 - Experiment ledger recording hypothesis, actions, before/target state, expected impact, risk, rollback path, status, and verification instruction
+- History-page access to the experiment ledger with explicit applied-versus-improved status
 - Searchable, navigable, copyable, wrappable, and savable evidence reports
 - Native access to controller calibration, PresentMon, Task Manager, Device Manager, Event Viewer, Windows Update, and NVIDIA App
 - Windows CI that validates XAML, event-handler wiring, PowerShell, JSON, security constraints, regression contracts, native build, self-contained publish, and artifact upload
+
+## Experiment lifecycle
+
+Every supported change creates a durable experiment record.
+
+1. **Hypothesis** — what should improve and which guardrails must not regress.
+2. **Apply** — exact reviewed actions are executed after a rollback snapshot is created.
+3. **Re-audit** — GPTOPT confirms the requested state and checks hardware, driver, controller, and reboot evidence.
+4. **Measure** — the same Halo scene is captured under comparable conditions.
+5. **Decide** — KEEP CANDIDATE, ROLLBACK CANDIDATE, or INCONCLUSIVE.
+6. **Close** — the user keeps the verified change or restores the linked rollback snapshot.
+
+“Applied” is never presented as “improved.”
 
 ## Competitive position
 
