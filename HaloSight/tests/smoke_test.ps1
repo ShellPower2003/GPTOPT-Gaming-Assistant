@@ -15,7 +15,9 @@ $RecommendationPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\Recommendatio
 $NetworkPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\NetworkQualityService.cs'
 $OptimizationPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\OptimizationService.cs'
 $ExperimentHistoryPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\ExperimentHistoryService.cs'
+$ExperimentOutcomePath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\ExperimentOutcomeService.cs'
 $ExperimentUiPath = Join-Path $RepoRoot 'src\GPTOPT.App\MainWindow.Experiments.cs'
+$SessionUiPath = Join-Path $RepoRoot 'src\GPTOPT.App\MainWindow.Session.cs'
 $ProjectPath = Join-Path $RepoRoot 'src\GPTOPT.App\GPTOPT.App.csproj'
 $XamlPath = Join-Path $RepoRoot 'src\GPTOPT.App\MainWindow.xaml'
 
@@ -53,7 +55,7 @@ try{
     Remove-Item -LiteralPath $testHome -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-foreach($requiredPath in @($LauncherPath,$RunGptOptPath,$BuildPath,$AuditScriptPath,$DiagnosticsPath,$RecommendationPath,$NetworkPath,$OptimizationPath,$ExperimentHistoryPath,$ExperimentUiPath,$ProjectPath,$XamlPath)){
+foreach($requiredPath in @($LauncherPath,$RunGptOptPath,$BuildPath,$AuditScriptPath,$DiagnosticsPath,$RecommendationPath,$NetworkPath,$OptimizationPath,$ExperimentHistoryPath,$ExperimentOutcomePath,$ExperimentUiPath,$SessionUiPath,$ProjectPath,$XamlPath)){
     Assert (Test-Path -LiteralPath $requiredPath) "Required runtime file missing: $requiredPath"
 }
 
@@ -106,8 +108,18 @@ foreach($experimentContract in @('ExperimentId','Hypothesis','RollbackSnapshot',
 $experimentHistoryText = Get-Content -Raw -LiteralPath $ExperimentHistoryPath
 Assert ($experimentHistoryText -match 'GPTOPT EXPERIMENT LEDGER') 'Experiment ledger report is missing.'
 Assert ($experimentHistoryText -match 'Applied.*not the same as.*improved') 'Experiment ledger decision rule is missing.'
+foreach($outcomeField in @('VerifiedUtc','BeforeCapture','AfterCapture','MeasurementSummary','DecisionRule')){
+    Assert ($experimentHistoryText -match [regex]::Escape($outcomeField)) "Experiment ledger outcome field missing: $outcomeField"
+}
+$experimentOutcomeText = Get-Content -Raw -LiteralPath $ExperimentOutcomePath
+foreach($outcomeContract in @('KEEP CANDIDATE','ROLLBACK CANDIDATE','INCONCLUSIVE','RecordLatestOutcome','VERIFICATION REQUIRED')){
+    Assert ($experimentOutcomeText -match [regex]::Escape($outcomeContract)) "Measured experiment outcome contract missing: $outcomeContract"
+}
 $experimentUiText = Get-Content -Raw -LiteralPath $ExperimentUiPath
 Assert ($experimentUiText -match 'Open Experiment Ledger') 'History page experiment ledger action is missing.'
+$sessionUiText = Get-Content -Raw -LiteralPath $SessionUiPath
+Assert ($sessionUiText -match 'RecordLatestOutcome') 'Session analysis must close the latest open experiment from measured evidence.'
+Assert ($sessionUiText -match 'EXPERIMENT UPDATE') 'Session report must disclose experiment updates.'
 
 [xml](Get-Content -Raw -LiteralPath $XamlPath) | Out-Null
 $xamlText = Get-Content -Raw -LiteralPath $XamlPath
