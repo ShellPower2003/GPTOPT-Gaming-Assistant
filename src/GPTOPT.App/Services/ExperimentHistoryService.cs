@@ -48,9 +48,31 @@ public sealed class ExperimentHistoryService
                 entry.AppendLine($"Status: {status}");
                 entry.AppendLine($"Created UTC: {Read(root, "CreatedUtc", "unknown")}");
                 entry.AppendLine($"Applied UTC: {Read(root, "AppliedUtc", "not applied")}");
+                entry.AppendLine($"Verified UTC: {Read(root, "VerifiedUtc", "not verified")}");
                 entry.AppendLine($"Hypothesis: {Read(root, "Hypothesis", "not supplied")}");
                 entry.AppendLine($"Rollback: {Read(root, "RollbackSnapshot", "not supplied")}");
                 entry.AppendLine($"Verification: {Read(root, "VerificationInstruction", "not supplied")}");
+
+                var beforeCapture = Read(root, "BeforeCapture", string.Empty);
+                var afterCapture = Read(root, "AfterCapture", string.Empty);
+                if (!string.IsNullOrWhiteSpace(beforeCapture) || !string.IsNullOrWhiteSpace(afterCapture))
+                {
+                    entry.AppendLine("Measured captures:");
+                    if (!string.IsNullOrWhiteSpace(beforeCapture)) entry.AppendLine($"  Before: {beforeCapture}");
+                    if (!string.IsNullOrWhiteSpace(afterCapture)) entry.AppendLine($"  After:  {afterCapture}");
+                }
+
+                var measurement = Read(root, "MeasurementSummary", string.Empty);
+                if (!string.IsNullOrWhiteSpace(measurement))
+                {
+                    entry.AppendLine("Measurement summary:");
+                    foreach (var line in measurement.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+                        entry.AppendLine($"  {line}");
+                }
+
+                var decisionRule = Read(root, "DecisionRule", string.Empty);
+                if (!string.IsNullOrWhiteSpace(decisionRule)) entry.AppendLine($"Decision rule: {decisionRule}");
+
                 var error = Read(root, "Error", string.Empty);
                 if (!string.IsNullOrWhiteSpace(error)) entry.AppendLine($"Failure: {error}");
                 entry.AppendLine("Actions:");
