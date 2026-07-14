@@ -13,6 +13,9 @@ $AuditScriptPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTAudit.ps1'
 $DiagnosticsPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\DiagnosticsService.cs'
 $RecommendationPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\RecommendationService.cs'
 $NetworkPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\NetworkQualityService.cs'
+$OptimizationPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\OptimizationService.cs'
+$ExperimentHistoryPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\ExperimentHistoryService.cs'
+$ExperimentUiPath = Join-Path $RepoRoot 'src\GPTOPT.App\MainWindow.Experiments.cs'
 $ProjectPath = Join-Path $RepoRoot 'src\GPTOPT.App\GPTOPT.App.csproj'
 $XamlPath = Join-Path $RepoRoot 'src\GPTOPT.App\MainWindow.xaml'
 
@@ -50,7 +53,7 @@ try{
     Remove-Item -LiteralPath $testHome -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-foreach($requiredPath in @($LauncherPath,$RunGptOptPath,$BuildPath,$AuditScriptPath,$DiagnosticsPath,$RecommendationPath,$NetworkPath,$ProjectPath,$XamlPath)){
+foreach($requiredPath in @($LauncherPath,$RunGptOptPath,$BuildPath,$AuditScriptPath,$DiagnosticsPath,$RecommendationPath,$NetworkPath,$OptimizationPath,$ExperimentHistoryPath,$ExperimentUiPath,$ProjectPath,$XamlPath)){
     Assert (Test-Path -LiteralPath $requiredPath) "Required runtime file missing: $requiredPath"
 }
 
@@ -95,6 +98,16 @@ foreach($networkContract in @('GatewayQuality','InternetQuality','LossPercent','
     Assert ($networkText -match [regex]::Escape($networkContract)) "Network quality contract missing: $networkContract"
 }
 Assert ($networkText -notmatch '(?i)TcpAckFrequency|TCPNoDelay|NetworkThrottlingIndex') 'Unsupported registry ping tweak found in network diagnostics.'
+
+$optimizationText = Get-Content -Raw -LiteralPath $OptimizationPath
+foreach($experimentContract in @('ExperimentId','Hypothesis','RollbackSnapshot','VerificationInstruction','APPLIED — VERIFICATION REQUIRED','FAILED')){
+    Assert ($optimizationText -match [regex]::Escape($experimentContract)) "Experiment application contract missing: $experimentContract"
+}
+$experimentHistoryText = Get-Content -Raw -LiteralPath $ExperimentHistoryPath
+Assert ($experimentHistoryText -match 'GPTOPT EXPERIMENT LEDGER') 'Experiment ledger report is missing.'
+Assert ($experimentHistoryText -match 'Applied.*not the same as.*improved') 'Experiment ledger decision rule is missing.'
+$experimentUiText = Get-Content -Raw -LiteralPath $ExperimentUiPath
+Assert ($experimentUiText -match 'Open Experiment Ledger') 'History page experiment ledger action is missing.'
 
 [xml](Get-Content -Raw -LiteralPath $XamlPath) | Out-Null
 $xamlText = Get-Content -Raw -LiteralPath $XamlPath
