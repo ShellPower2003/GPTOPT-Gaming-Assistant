@@ -6,6 +6,7 @@ namespace GPTOPT.App;
 public partial class MainWindow
 {
     private readonly SessionCaptureService _sessionCaptureService = new();
+    private readonly ExperimentOutcomeService _experimentOutcomeService = new();
 
     private void AnalyzeLatestSession_Click(object sender, RoutedEventArgs e)
     {
@@ -17,13 +18,19 @@ public partial class MainWindow
 
             if (pair.Previous is not null)
             {
-                report += "\n\n" + _comparisonService.Compare(pair.Previous, pair.Latest);
+                var comparison = _comparisonService.Compare(pair.Previous, pair.Latest);
+                report += "\n\n" + comparison;
+
+                var outcome = _experimentOutcomeService.RecordLatestOutcome(comparison, pair.Previous, pair.Latest);
+                if (!string.IsNullOrWhiteSpace(outcome))
+                    report += $"\n\nEXPERIMENT UPDATE\n{outcome}\nOpen History → Experiment Ledger to review the linked hypothesis, rollback point, and measured outcome.";
+
                 StatusText.Text = "Latest session analyzed and compared to the prior matching capture.";
                 StatusDetailText.Text = $"Latest: {Path.GetFileName(pair.Latest)} • Previous: {Path.GetFileName(pair.Previous)}";
             }
             else
             {
-                report += "\n\nNo prior equivalent capture was found automatically. Record another equivalent run to unlock a keep-or-rollback verdict.";
+                report += "\n\nNo prior equivalent capture was found automatically. Record another equivalent run to unlock a keep-or-rollback verdict and close the latest experiment.";
                 StatusText.Text = "Latest session analyzed.";
                 StatusDetailText.Text = Path.GetFileName(pair.Latest);
             }
