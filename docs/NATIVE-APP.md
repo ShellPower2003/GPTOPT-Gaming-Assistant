@@ -1,46 +1,66 @@
 # GPTOPT Native App
 
-GPTOPT is an explainable Windows gaming utility organized around **Prepare → Understand → Measure → Apply/Roll Back → Verify**.
+GPTOPT is an explainable Windows gaming performance assistant organized around **Prepare → Understand → Measure → Experiment → Keep or Roll Back → Verify**.
 
-## Normal launch
+## Product promise
 
-The supported user entry point is `GPTOPT_LAUNCHER.cmd`. It updates the native-app branch, rebuilds only when the commit changed, records the built commit, and opens the native executable. Users should not need to remember Git or `dotnet` commands.
+GPTOPT should answer five questions without forcing the user to interpret raw Windows data:
+
+1. Can I play now?
+2. What evidence actually matters?
+3. What changed?
+4. Did the change measurably help?
+5. Can I undo it safely?
 
 ## Current capabilities
 
-- Persistent local PC audits with verified sanitized GitHub publishing
-- Gaming readiness based on relevant evidence rather than raw Windows error volume
-- Decision-first targeted diagnostics with blocking, review, and informational findings
-- Controller-event evidence that records provider, event ID, device match, and timestamp
-- Explainable recommendations showing current state, target state, impact, risk, exact action, administrator requirement, reboot requirement, and rollback behavior
-- Safe Gaming Baseline and Stability Review profiles
+- Persistent local PC audits with optional sanitized GitHub publishing and read-back verification
+- Relevance-weighted readiness verdicts instead of generic Windows error totals
+- Decision-first diagnostics separating blocking, review, and informational findings
+- Specific WHEA, GPU reset, storage, controller, gaming-crash, problem-device, Flydigi, and reboot findings
+- Controller evidence with provider, event ID, matched device, and timestamp
+- Flydigi/Vader path validation without terminating SpaceStation or GameControllerService
+- Network-quality measurement for active adapter, gateway, DNS, latency, jitter, packet loss, and route evidence
+- Honest network guidance: measurement and path separation rather than unsupported registry ping claims
+- Automatic discovery and ranking of recent CapFrameX/PresentMon captures
+- Session analysis with duration, average FPS, 1% low, P95, P99, standard deviation, severe-hitch rates, maximum frame time, and capture-quality assessment
+- Comparison confidence gates that reject short or materially different-duration runs
+- Keep, rollback, or inconclusive verdicts only when equivalent-run evidence supports them
+- Explainable recommendations showing current state, target state, expected impact, risk, exact change, administrator requirement, reboot requirement, and rollback behavior
+- Evidence-specific Advanced Tune cards instead of generic “recent errors” cards
 - Automatic rollback snapshots before supported changes
-- Rollback Manager that restores a selected snapshot and directs the user to verify the result
-- Flydigi/Vader controller-path checks without terminating SpaceStation or GameControllerService
-- Controller calibration access through Windows `joy.cpl`
-- Bounded, Halo-first discovery of CapFrameX and PresentMon CSV captures
-- Single-session analysis with duration, average FPS, 1% low, P95, P99, variance, severe-hitch rates, and capture-quality assessment
-- Before/after comparison that refuses a keep-or-rollback verdict when capture duration or sample quality is not comparable
-- Direct launch access for PresentMon, Task Manager, Device Manager, Event Viewer, Windows Update, and NVIDIA App
-- Windows CI that validates PowerShell, JSON, XAML, runtime wiring, regression contracts, native build, self-contained publish, and artifact upload
+- Experiment ledger recording hypothesis, actions, before/target state, expected impact, risk, rollback path, status, and verification instruction
+- Searchable, navigable, copyable, wrappable, and savable evidence reports
+- Native access to controller calibration, PresentMon, Task Manager, Device Manager, Event Viewer, Windows Update, and NVIDIA App
+- Windows CI that validates XAML, event-handler wiring, PowerShell, JSON, security constraints, regression contracts, native build, self-contained publish, and artifact upload
 
-## Evidence and severity rules
+## Competitive position
 
-- **Blocking:** WHEA hardware evidence, GPU/display resets, storage faults, or active problem devices. These invalidate performance testing until resolved.
-- **Review:** confirmed controller-path events, gaming-process crashes, or a real Windows Update/Component Servicing reboot requirement. These require timestamp and device correlation.
-- **Informational:** background application crashes and isolated stale cleanup entries. These remain visible but do not justify a tweak or materially lower readiness.
-- Raw event counts are never treated as proof by themselves.
-- A single performance capture is descriptive only. A change becomes a keep or rollback candidate only after equivalent-run comparison.
+GPTOPT deliberately does not try to become another opaque “one-click booster.”
+
+- **Versus OEM hubs:** hardware control remains in vendor software; GPTOPT provides cross-vendor readiness, explanation, measurement, and rollback.
+- **Versus generic optimizers:** GPTOPT refuses to call RAM clearing, blanket service disabling, registry packs, or raw event-count reduction a performance win.
+- **Versus route optimizers:** GPTOPT measures gateway and Internet path quality and identifies where instability begins. It does not claim Windows tweaks can manufacture a shorter external route.
+- **Versus benchmark tools:** CapFrameX and PresentMon remain authoritative capture sources; GPTOPT converts their data into comparable experiments and decisions.
+- **Versus monitoring overlays:** GPTOPT connects evidence to a durable audit, a specific change, a rollback point, and a verification state.
 
 ## Product rules
 
-GPTOPT does not use RAM-cleaner behavior, blanket service disabling, bulk driver updating, indiscriminate registry packs, automatic process-priority manipulation, game-memory access, input injection, or unsupported claims of improvement. GPTOPT does not reboot automatically. A change should be kept only when repeatable audit or performance evidence supports it.
+GPTOPT does not use RAM-cleaner behavior, blanket service disabling, bulk driver updating, indiscriminate registry packs, automatic process-priority manipulation, game-memory access, input injection, forced reboot, or unsupported claims of improvement.
 
-## Developer build
+A change is not a win until:
+
+- the before and after runs are comparable,
+- multiple relevant metrics improve,
+- critical guardrails do not regress,
+- the result can be reproduced,
+- and rollback remains available.
+
+## Build
 
 ```powershell
 Set-Location "$env:USERPROFILE\Documents\GitHub\GPTOPT-Gaming-Assistant"
-.\Build-GPTOPTApp.ps1 -Run
+.\GPTOPT_LAUNCHER.cmd
 ```
 
-The self-contained application is written to `dist\win-x64\GPTOPT.exe`.
+The published application is written to `dist\win-x64\GPTOPT.exe`.
