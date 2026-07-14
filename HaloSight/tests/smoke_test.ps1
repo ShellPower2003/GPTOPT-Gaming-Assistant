@@ -10,6 +10,7 @@ $LauncherPath = Join-Path $RepoRoot 'GPTOPT_LAUNCHER.cmd'
 $RunGptOptPath = Join-Path $RepoRoot 'Run-GPTOPT.ps1'
 $BuildPath = Join-Path $RepoRoot 'Build-GPTOPTApp.ps1'
 $AuditScriptPath = Join-Path $RepoRoot 'Scripts\Invoke-GPTOPTAudit.ps1'
+$DiagnosticsPath = Join-Path $RepoRoot 'src\GPTOPT.App\Services\DiagnosticsService.cs'
 $ProjectPath = Join-Path $RepoRoot 'src\GPTOPT.App\GPTOPT.App.csproj'
 $XamlPath = Join-Path $RepoRoot 'src\GPTOPT.App\MainWindow.xaml'
 
@@ -47,7 +48,7 @@ try{
     Remove-Item -LiteralPath $testHome -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-foreach($requiredPath in @($LauncherPath,$RunGptOptPath,$BuildPath,$AuditScriptPath,$ProjectPath,$XamlPath)){
+foreach($requiredPath in @($LauncherPath,$RunGptOptPath,$BuildPath,$AuditScriptPath,$DiagnosticsPath,$ProjectPath,$XamlPath)){
     Assert (Test-Path -LiteralPath $requiredPath) "Required runtime file missing: $requiredPath"
 }
 
@@ -76,6 +77,14 @@ Assert ($auditText -match 'function Get-ControllerEventSummary') 'Controller-spe
 Assert ($auditText -match 'controller_fault_evidence') 'Controller evidence must be persisted and published.'
 Assert ($auditText -match 'Confirmed controller/USB fault events') 'Published audit must distinguish confirmed controller faults.'
 Assert ($auditText -notmatch '\$controllerFaults=Get-EventCount') 'Broad controller provider counting regression detected.'
+
+$diagnosticsText = Get-Content -Raw -LiteralPath $DiagnosticsPath
+Assert ($diagnosticsText -match 'DECISION') 'Targeted diagnostics must lead with a decision.'
+Assert ($diagnosticsText -match 'BLOCKING FINDINGS') 'Targeted diagnostics must classify blocking findings.'
+Assert ($diagnosticsText -match 'REVIEW FINDINGS') 'Targeted diagnostics must classify review findings.'
+Assert ($diagnosticsText -match 'EVIDENCE — CONTROLLER EVENTS') 'Targeted diagnostics must expose controller evidence.'
+Assert ($diagnosticsText -match 'VID_045E&PID_028E') 'Targeted diagnostics must recognize the Vader controller hardware path.'
+Assert ($diagnosticsText -notmatch 'Zero WHEA, display-reset, storage-timeout, and USB/controller events') 'Contradictory fixed interpretation text regression detected.'
 
 [xml](Get-Content -Raw -LiteralPath $XamlPath) | Out-Null
 $xamlText = Get-Content -Raw -LiteralPath $XamlPath
