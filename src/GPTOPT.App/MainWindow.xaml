@@ -1,7 +1,7 @@
 <Window x:Class="GPTOPT.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="GPTOPT" Width="1420" Height="900" MinWidth="1120" MinHeight="720"
+        Title="GPTOPT" Width="1460" Height="920" MinWidth="1160" MinHeight="740"
         WindowStartupLocation="CenterScreen" Background="#070A10" Foreground="#F5F7FA" FontFamily="Segoe UI">
   <Window.Resources>
     <SolidColorBrush x:Key="Panel" Color="#111824"/>
@@ -32,7 +32,7 @@
   </Window.Resources>
 
   <Grid>
-    <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="258"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
     <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
 
     <Border Grid.Column="0" Grid.RowSpan="2" Background="#0B111B" BorderBrush="#1E2D40" BorderThickness="0,0,1,0">
@@ -53,7 +53,7 @@
           <TextBlock Text="LATEST LOCAL SCAN" Foreground="{StaticResource Muted}" FontSize="10" FontWeight="Bold"/>
           <TextBlock x:Name="AuditIdText" Text="No audit loaded" TextWrapping="Wrap" Margin="0,6,0,12"/>
           <Button Content="Prepare for Halo" Click="PrepareForHalo_Click" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Stretch" Padding="18,13"/>
-          <Button Content="Scan + Publish" Click="PublishAuditButton_Click" HorizontalAlignment="Stretch"/>
+          <Button Content="Publish Verified" Click="PublishAuditButton_Click" HorizontalAlignment="Stretch"/>
           <Button Content="Rollback" Click="OpenRollbackManager_Click" Style="{StaticResource DangerButton}" HorizontalAlignment="Stretch"/>
         </StackPanel>
       </Grid>
@@ -64,8 +64,8 @@
       <Border Background="#0B111A" BorderBrush="#203047" BorderThickness="0,0,0,1" Padding="24,15">
         <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
           <StackPanel>
-            <TextBlock Text="Know whether to play, investigate, or roll back" FontSize="24" FontWeight="Bold"/>
-            <TextBlock Text="Gaming-relevant evidence is weighted above raw Windows event volume." Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
+            <TextBlock Text="Prepare. Understand. Measure. Keep or roll back." FontSize="24" FontWeight="Bold"/>
+            <TextBlock Text="Evidence over raw counts. Repeatable gains over one-click boost claims." Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
             <Button x:Name="LocalAuditButton" Content="Quick Scan" Click="LocalAuditButton_Click"/>
@@ -79,25 +79,26 @@
         <TabItem Header="Home">
           <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="26">
             <Grid Margin="0,0,0,18"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-              <StackPanel><TextBlock Text="Your next Halo session" FontSize="32" FontWeight="Bold"/><TextBlock Text="One decision first. Details only when they matter." Foreground="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel>
+              <StackPanel><TextBlock Text="Can I play Halo now?" FontSize="34" FontWeight="Bold"/><TextBlock Text="One decision first. Evidence and actions only when they matter." Foreground="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel>
               <Button Grid.Column="1" Content="Prepare for Halo" Click="PrepareForHalo_Click" Style="{StaticResource PrimaryButton}" Padding="25,13"/>
             </Grid>
             <Border Background="#101B29" CornerRadius="14" Padding="20" BorderBrush="#2B435E" BorderThickness="1" Margin="0,0,0,18">
               <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel><TextBlock Text="WHAT NEEDS ATTENTION" Foreground="#FFBE55" FontSize="10" FontWeight="Bold"/><TextBlock x:Name="HealthText" Text="Run a scan to classify gaming-relevant findings." TextWrapping="Wrap" FontSize="15" Margin="0,8,18,0"/></StackPanel>
-                <Button Grid.Column="1" Content="View What Needs Attention" Click="RunTargetedDiagnostics_Click" Style="{StaticResource PrimaryButton}" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Content="Open Evidence" Click="RunTargetedDiagnostics_Click" Style="{StaticResource PrimaryButton}" VerticalAlignment="Center"/>
               </Grid>
             </Border>
-            <UniformGrid Columns="3" Margin="0,0,0,18">
-              <Button Click="RunTargetedDiagnostics_Click" Padding="18" MinHeight="130"><StackPanel><TextBlock Text="HEALTH" Foreground="#70B7FF" FontSize="10" FontWeight="Bold"/><TextBlock Text="Find the real fault" FontSize="19" FontWeight="Bold" Margin="0,7,0,5"/><TextBlock Text="WHEA, GPU resets, storage, controller events, crashes, devices, and reboot sources." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/></StackPanel></Button>
-              <Button Click="OpenControllerCalibration_Click" Padding="18" MinHeight="130"><StackPanel><TextBlock Text="CONTROLLER" Foreground="#B9A5FF" FontSize="10" FontWeight="Bold"/><TextBlock Text="Validate Vader 4 Pro" FontSize="19" FontWeight="Bold" Margin="0,7,0,5"/><TextBlock Text="Check stick center, range, triggers, buttons, and Windows mapping before tuning curves." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/></StackPanel></Button>
-              <Button Click="AnalyzeLatestSession_Click" Padding="18" MinHeight="130"><StackPanel><TextBlock Text="PERFORMANCE" Foreground="#66DDA5" FontSize="10" FontWeight="Bold"/><TextBlock Text="Analyze latest session" FontSize="19" FontWeight="Bold" Margin="0,7,0,5"/><TextBlock Text="Find the newest CapFrameX or PresentMon CSV automatically and compare the prior matching capture when available." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/></StackPanel></Button>
+            <UniformGrid Columns="4" Margin="0,0,0,18">
+              <Button Click="RunTargetedDiagnostics_Click" Padding="16" MinHeight="138"><StackPanel><TextBlock Text="HEALTH" Foreground="#70B7FF" FontSize="10" FontWeight="Bold"/><TextBlock Text="Find the real fault" FontSize="18" FontWeight="Bold" Margin="0,7,0,5"/><TextBlock Text="WHEA, GPU resets, storage, controller events, crashes, devices, and reboot sources." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/></StackPanel></Button>
+              <Button Click="OpenControllerCalibration_Click" Padding="16" MinHeight="138"><StackPanel><TextBlock Text="CONTROLLER" Foreground="#B9A5FF" FontSize="10" FontWeight="Bold"/><TextBlock Text="Validate Vader 4 Pro" FontSize="18" FontWeight="Bold" Margin="0,7,0,5"/><TextBlock Text="Check center, range, triggers, buttons, mapping, and the Flydigi service path." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/></StackPanel></Button>
+              <Button Click="AnalyzeLatestSession_Click" Padding="16" MinHeight="138"><StackPanel><TextBlock Text="PERFORMANCE" Foreground="#66DDA5" FontSize="10" FontWeight="Bold"/><TextBlock Text="Analyze latest session" FontSize="18" FontWeight="Bold" Margin="0,7,0,5"/><TextBlock Text="Find CapFrameX or PresentMon evidence and compare a plausible prior run." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/></StackPanel></Button>
+              <Button Click="RunNetworkQuality_Click" Padding="16" MinHeight="138"><StackPanel><TextBlock Text="NETWORK" Foreground="#7AD7FF" FontSize="10" FontWeight="Bold"/><TextBlock Text="Measure path quality" FontSize="18" FontWeight="Bold" Margin="0,7,0,5"/><TextBlock Text="Gateway and Internet latency, jitter, loss, DNS, adapter, and route evidence." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/></StackPanel></Button>
             </UniformGrid>
             <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
               <GroupBox Header="Hardware and display" Grid.Column="0" Margin="0,0,8,8"><TextBlock x:Name="PlatformText" Margin="8" TextWrapping="Wrap"/></GroupBox>
               <GroupBox Header="Gaming baseline" Grid.Column="1" Margin="8,0,0,8"><TextBlock x:Name="GamingText" Margin="8" TextWrapping="Wrap"/></GroupBox>
               <GroupBox Header="Controller, network, tools" Grid.Row="1" Grid.Column="0" Margin="0,8,8,0"><TextBlock x:Name="DeviceText" Margin="8" TextWrapping="Wrap"/></GroupBox>
-              <GroupBox Header="Evidence policy" Grid.Row="1" Grid.Column="1" Margin="8,8,0,0"><TextBlock Text="Raw event counts do not lower readiness by themselves. GPTOPT prioritizes WHEA, display resets, storage timeouts, active device faults, gaming-process crashes, controller-path failures, and measured regression." Margin="8" TextWrapping="Wrap"/></GroupBox>
+              <GroupBox Header="Evidence policy" Grid.Row="1" Grid.Column="1" Margin="8,8,0,0"><TextBlock Text="GPTOPT does not treat raw Windows volume as performance proof. Blocking evidence, matched devices/processes, timestamps, and equivalent-run measurement determine the verdict." Margin="8" TextWrapping="Wrap"/></GroupBox>
             </Grid>
           </StackPanel></ScrollViewer>
         </TabItem>
@@ -106,7 +107,7 @@
           <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="28">
             <TextBlock Text="Prepare for Halo" FontSize="31" FontWeight="Bold"/><TextBlock Text="Scan, classify, and return a plain readiness decision." Foreground="{StaticResource Muted}" Margin="0,5,0,18"/>
             <Button Content="Run Complete Readiness Check" Click="PrepareForHalo_Click" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Padding="24,13"/>
-            <WrapPanel Margin="0,18,0,0"><Button Content="Full Scan" Click="LocalAuditButton_Click" Width="180"/><Button Content="Targeted Diagnostics" Click="RunTargetedDiagnostics_Click" Width="190"/><Button Content="Controller Test" Click="OpenControllerCalibration_Click" Width="180"/><Button Content="Verify Changes" Click="VerifyChanges_Click" Width="180"/></WrapPanel>
+            <WrapPanel Margin="0,18,0,0"><Button Content="Full Scan" Click="LocalAuditButton_Click" Width="170"/><Button Content="Targeted Diagnostics" Click="RunTargetedDiagnostics_Click" Width="190"/><Button Content="Network Quality" Click="RunNetworkQuality_Click" Width="170"/><Button Content="Controller Test" Click="OpenControllerCalibration_Click" Width="170"/><Button Content="Verify Changes" Click="VerifyChanges_Click" Width="170"/></WrapPanel>
           </StackPanel></ScrollViewer>
         </TabItem>
 
@@ -118,13 +119,17 @@
           <StackPanel Margin="28"><TextBlock Text="Performance proof" FontSize="31" FontWeight="Bold"/><TextBlock Text="No tweak is a win without equivalent-run evidence." Foreground="{StaticResource Muted}" Margin="0,5,0,18"/><WrapPanel><Button Content="Analyze Latest Session" Click="AnalyzeLatestSession_Click" Style="{StaticResource PrimaryButton}" Width="230"/><Button Content="Compare Manually" Click="CompareCaptures_Click" Width="190"/><Button Content="Show Found Captures" Click="ShowCaptureDiscovery_Click" Width="190"/><Button Content="Open PresentMon" Click="OpenPresentMonRobust_Click" Width="190"/></WrapPanel></StackPanel>
         </TabItem>
 
+        <TabItem Header="Network">
+          <StackPanel Margin="28"><TextBlock Text="Network path quality" FontSize="31" FontWeight="Bold"/><TextBlock Text="Measure first. Separate local gateway problems from upstream route problems." Foreground="{StaticResource Muted}" Margin="0,5,0,18"/><Button Content="Measure Latency, Jitter, Loss &amp; Route" Click="RunNetworkQuality_Click" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Padding="22,12"/><TextBlock Text="GPTOPT will not sell registry changes as a shorter Internet route. Repeat this test while Halo feels wrong and compare gateway results against Internet targets." TextWrapping="Wrap" Margin="0,18,0,0" MaxWidth="850"/></StackPanel>
+        </TabItem>
+
         <TabItem Header="Troubleshoot">
-          <StackPanel Margin="28"><TextBlock Text="Troubleshoot by symptom" FontSize="31" FontWeight="Bold"/><TextBlock Text="Start with classification, then open the native evidence source." Foreground="{StaticResource Muted}" Margin="0,5,0,18"/><WrapPanel><Button Content="Run Targeted Diagnostics" Click="RunTargetedDiagnostics_Click" Style="{StaticResource PrimaryButton}" Width="220"/><Button Content="Task Manager" Click="OpenTaskManager_Click"/><Button Content="Device Manager" Click="OpenDeviceManager_Click"/><Button Content="Event Viewer" Click="OpenEventViewer_Click"/><Button Content="Windows Update" Click="OpenWindowsUpdate_Click"/><Button Content="NVIDIA App" Click="OpenNvidiaApp_Click"/><Button Content="PresentMon" Click="OpenPresentMonRobust_Click"/></WrapPanel></StackPanel>
+          <StackPanel Margin="28"><TextBlock Text="Troubleshoot by symptom" FontSize="31" FontWeight="Bold"/><TextBlock Text="Start with classification, then open the native evidence source." Foreground="{StaticResource Muted}" Margin="0,5,0,18"/><WrapPanel><Button Content="Targeted Diagnostics" Click="RunTargetedDiagnostics_Click" Style="{StaticResource PrimaryButton}" Width="210"/><Button Content="Network Quality" Click="RunNetworkQuality_Click" Width="170"/><Button Content="Task Manager" Click="OpenTaskManager_Click"/><Button Content="Device Manager" Click="OpenDeviceManager_Click"/><Button Content="Event Viewer" Click="OpenEventViewer_Click"/><Button Content="Windows Update" Click="OpenWindowsUpdate_Click"/><Button Content="NVIDIA App" Click="OpenNvidiaApp_Click"/><Button Content="PresentMon" Click="OpenPresentMonRobust_Click"/></WrapPanel></StackPanel>
         </TabItem>
 
         <TabItem Header="Advanced Tune">
           <Grid Margin="22"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="455"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <Grid Grid.ColumnSpan="2" Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Advanced tuning" FontSize="29" FontWeight="Bold"/><TextBlock Text="Exact, reversible controls. Nothing is called an improvement until verified." Foreground="{StaticResource Muted}"/></StackPanel><ComboBox x:Name="CategoryFilter" Grid.Column="1" Width="170" SelectionChanged="CategoryFilter_SelectionChanged"><ComboBoxItem Content="All" IsSelected="True"/><ComboBoxItem Content="Windows Gaming"/><ComboBoxItem Content="Graphics"/><ComboBoxItem Content="Health"/><ComboBoxItem Content="Devices"/></ComboBox></Grid>
+            <Grid Grid.ColumnSpan="2" Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Advanced tuning" FontSize="29" FontWeight="Bold"/><TextBlock Text="Specific evidence and reversible controls. No generic error-count cards." Foreground="{StaticResource Muted}"/></StackPanel><ComboBox x:Name="CategoryFilter" Grid.Column="1" Width="170" SelectionChanged="CategoryFilter_SelectionChanged"><ComboBoxItem Content="All" IsSelected="True"/><ComboBoxItem Content="Windows Gaming"/><ComboBoxItem Content="Graphics"/><ComboBoxItem Content="Health"/><ComboBoxItem Content="Devices"/></ComboBox></Grid>
             <WrapPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,0,0,12"><Button Content="Safe Gaming Baseline" Click="SafeGamingProfile_Click"/><Button Content="Stability Review" Click="StabilityProfile_Click"/><Button Content="Clear" Click="ClearSelection_Click"/></WrapPanel>
             <ListBox x:Name="RecommendationList" Grid.Row="2" Grid.Column="0" Background="#0A1018" Foreground="White" BorderBrush="{StaticResource Stroke}" SelectionChanged="RecommendationList_SelectionChanged"><ListBox.ItemTemplate><DataTemplate><Border BorderBrush="#223149" BorderThickness="0,0,0,1" Padding="12"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions><CheckBox IsChecked="{Binding IsSelected}" IsEnabled="{Binding CanApply}" Margin="0,3,10,0" Click="RecommendationCheckBox_Click"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Title}" FontWeight="SemiBold"/><TextBlock Text="{Binding Summary}" Foreground="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/></StackPanel></Grid></Border></DataTemplate></ListBox.ItemTemplate></ListBox>
             <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Panel2}" CornerRadius="10" Padding="20" Margin="16,0,0,0" BorderBrush="{StaticResource Stroke}" BorderThickness="1"><ScrollViewer><StackPanel><TextBlock x:Name="RecommendationTitle" Text="Select a setting or finding" FontSize="25" FontWeight="Bold" TextWrapping="Wrap"/><TextBlock x:Name="RecommendationMeta" Foreground="#7EB8FF" Margin="0,6,0,16"/><TextBlock Text="CURRENT" Foreground="{StaticResource Muted}" FontSize="10"/><TextBlock x:Name="CurrentStateText" TextWrapping="Wrap" Margin="0,4,0,12"/><TextBlock Text="TARGET" Foreground="#66DDA5" FontSize="10"/><TextBlock x:Name="TargetStateText" TextWrapping="Wrap" Margin="0,4,0,12"/><TextBlock Text="WHY" Foreground="{StaticResource Muted}" FontSize="10"/><TextBlock x:Name="WhyText" TextWrapping="Wrap" Margin="0,4,0,12"/><TextBlock Text="WHAT GPTOPT DOES" Foreground="{StaticResource Muted}" FontSize="10"/><TextBlock x:Name="HowText" TextWrapping="Wrap" Margin="0,4,0,12"/><TextBlock x:Name="SafetyText" TextWrapping="Wrap"/></StackPanel></ScrollViewer></Border>
