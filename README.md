@@ -1,101 +1,56 @@
 # GPTOPT Gaming Assistant
 
-Central repository for a custom gaming optimization assistant focused on Windows 11 tuning, latency reduction, benchmarking, NVIDIA profile work, and practical troubleshooting for performance-sensitive PC gaming setups.
+GPTOPT is a native Windows gaming performance assistant built around one strict rule:
 
-This repo now serves as the **single hub** for the earlier experimental repositories:
+> A setting is not an improvement until equivalent evidence shows that it helped and a rollback remains available.
 
-- **PowerShell-Utility** → merged here as a real script and toolkit path
-- **nvidiaProfileInspector** → treated as an upstream companion/reference project for profile-level NVIDIA tuning
-- **Gpttest-** → treated as a learning/reference source for prompt-engineering patterns, not bundled content
+## What GPTOPT does
 
-## One-script entry point
+- Answers whether the PC is ready to play through a relevance-weighted readiness verdict
+- Separates blocking hardware/driver evidence from review items and harmless background noise
+- Detects WHEA, GPU resets, storage faults, controller-path events, gaming crashes, problem devices, and reboot causes
+- Validates the Flydigi Vader 4 Pro and GameControllerService path without terminating SpaceStation
+- Measures active network-path quality: adapter, gateway, DNS, latency, jitter, packet loss, and route evidence
+- Discovers and analyzes recent CapFrameX or PresentMon captures automatically
+- Rejects low-confidence before/after comparisons instead of manufacturing a winner
+- Applies only reviewed supported settings after creating rollback data
+- Records each applied change as an experiment with a hypothesis, expected impact, guardrails, rollback path, and verification requirement
+- Publishes a sanitized current audit to GitHub and reads it back to verify the exact audit ID
 
-Run this from PowerShell at the repo root:
+## What GPTOPT refuses to do
 
-`./Launch-GPTOPT.ps1`
+- Fake RAM cleaning
+- Blanket service disabling
+- Bulk driver updating
+- Registry-pack spam
+- Automatic game process-priority manipulation
+- Game-memory access or input injection
+- Forced reboot
+- Unsupported “lower ping” claims from Windows registry tweaks
+- Calling an applied tweak a performance win without measurement
 
-That launcher gives you one menu for:
-- a read-only system audit
-- docs and templates
-- preset checklist scripts
-- NIP preset files
-- registry bundle visibility
-- opening the repo folder directly
+## Start
 
-## What this repo is
+```powershell
+Set-Location "$env:USERPROFILE\Documents\GitHub\GPTOPT-Gaming-Assistant"
+.\GPTOPT_LAUNCHER.cmd
+```
 
-This repository is for building and maintaining a custom GPT / assistant that can:
+The launcher updates the native-app branch, rebuilds only when the commit changed, and opens the self-contained application.
 
-- analyze gaming-performance issues
-- suggest safe Windows 11 tuning steps
-- explain NVIDIA Profile Inspector concepts and profile strategy
-- guide benchmarking with CapFrameX, RTSS, PresentMon, and similar tools
-- provide rollback-aware scripts and concise operating guidance
+## Product workflow
 
-## Included files
+1. **Prepare** — audit the PC and return READY, READY WITH REVIEW ITEMS, or NOT READY.
+2. **Understand** — open evidence-specific findings with why, impact, and next action.
+3. **Measure** — analyze a Halo performance capture or network path.
+4. **Experiment** — apply reviewed reversible changes with a recorded hypothesis.
+5. **Verify** — re-audit and compare equivalent runs.
+6. **Keep or Roll Back** — retain only reproduced improvements.
 
-- `Launch-GPTOPT.ps1` — single-entry toolkit launcher
-- `instructions.txt` — core assistant behavior and response format
-- `prompt_examples.json` — sample user prompts / conversation starters
-- `GPT_Builder_Setup_Guide.txt` — setup guide for importing into a custom GPT
-- `Scripts/Ultimate-Utility.ps1` — utility script with a read-only audit path
-- `Profiles/Competitive-Latency-Baseline.ps1` — competitive tuning checklist script
-- `Profiles/Visual-Quality-Baseline.ps1` — image-quality tuning checklist script
-- `NIP/GPTOPT-Competitive-Latency-Baseline.nip` — competitive preset in actual export-style XML format
-- `NIP/GPTOPT-Visual-Quality-Baseline.nip` — visual-quality preset in actual export-style XML format
-- `NIP/GPTOPT-Balanced-Baseline.nip` — balanced preset in actual export-style XML format
-- `NIP/GPTOPT-Halo-Infinite-Competitive.nip` — Halo Infinite competitive preset in actual export-style XML format
-- `NIP/GPTOPT-Global-Safe-Baseline.nip` — conservative global preset in actual export-style XML format
-- `NIP/README.md` — notes on current NIP structure and scope
-- `Registry/MPO-Disable.reg` — MPO disable bundle
-- `Registry/MPO-Restore.reg` — MPO restore bundle
-- `Registry/README.md` — notes for registry bundle use
-- `docs/UPSTREAM_SOURCES.md` — explains how the old repos map into this one
-- `docs/BENCHMARK_ANALYSIS_TEMPLATE.md` — reusable benchmark comparison template
-- `docs/NVIDIA_PROFILE_STRATEGY.md` — guidance for explaining and validating NPI changes
-- `docs/WINDOWS_GRAPHICS_BASELINE.md` — baseline questions and validation order for Windows graphics tuning
-- `docs/CAPFRAMEX_PRESENTMON_GUIDE.md` — capture-discipline guide
+## Product differentiation
 
-## Design principles
+GPTOPT is not an OEM control panel, generic cleaner, route-selling VPN, or benchmark viewer. It connects system evidence, controller state, network measurements, performance captures, applied changes, rollback data, and verification into one durable workflow.
 
-1. Prefer reversible changes first.
-2. Explain tradeoffs clearly.
-3. Keep risky changes explicit.
-4. Validate with measurement tools.
-5. Keep the assistant concise, decisive, and technically grounded.
+Vendor tools remain authoritative for vendor hardware controls. CapFrameX and PresentMon remain authoritative capture sources. GPTOPT turns those sources into decisions and preserves the evidence behind them.
 
-## Scope
-
-### Windows / OS
-- gaming-oriented Windows tuning
-- rollback-aware registry and service guidance
-- safe-first troubleshooting paths
-
-### GPU / NVIDIA
-- practical explanation of common NPI settings
-- profile strategy and profile-management workflow
-- latency / frametime / scaling tradeoff guidance
-
-### Benchmarks / diagnostics
-- CapFrameX, RTSS, PresentMon, event logs, and audit scripts
-- before/after verification structure
-- reusable analysis templates
-
-### Prompt / assistant behavior
-- response structure for high-signal technical help
-- reusable prompt patterns for diagnostics, rollback, and profile generation
-
-## Notes on upstream content
-
-This repository intentionally **does not re-bundle third-party notebook/course content** from other projects. When outside repos are useful, they are documented as references in `docs/UPSTREAM_SOURCES.md`.
-
-## Current NIP status
-
-The repo now has real export-style XML `.nip` files based on a user-provided exported sample. The current presets only use setting names and IDs that were directly confirmed from that sample, so the structure is now grounded and the scope is intentionally controlled.
-
-## Recommended next additions
-
-- expand the XML preset library using more confirmed NPI setting IDs
-- add more game-specific `.nip` exports
-- add more rollback bundles once baseline handling is documented cleanly
-- add more targeted profile scripts
+See [`docs/NATIVE-APP.md`](docs/NATIVE-APP.md) for the full product contract.
