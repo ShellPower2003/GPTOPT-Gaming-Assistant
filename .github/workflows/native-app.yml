@@ -1,0 +1,37 @@
+name: Native App CI
+
+on:
+  push:
+    branches:
+      - agent/native-desktop-app
+  pull_request:
+    paths:
+      - 'src/GPTOPT.App/**'
+      - 'Build-GPTOPTApp.ps1'
+      - '.github/workflows/native-app.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Validate XAML
+        shell: pwsh
+        run: |
+          [xml](Get-Content -Raw ./src/GPTOPT.App/MainWindow.xaml) | Out-Null
+      - name: Restore
+        run: dotnet restore ./src/GPTOPT.App/GPTOPT.App.csproj
+      - name: Build
+        run: dotnet build ./src/GPTOPT.App/GPTOPT.App.csproj -c Release --no-restore
+      - name: Publish self-contained app
+        run: dotnet publish ./src/GPTOPT.App/GPTOPT.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./artifacts/win-x64
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: GPTOPT-win-x64
+          path: ./artifacts/win-x64/**
+          if-no-files-found: error
