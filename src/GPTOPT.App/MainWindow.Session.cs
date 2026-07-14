@@ -7,6 +7,7 @@ public partial class MainWindow
 {
     private readonly SessionCaptureService _sessionCaptureService = new();
     private readonly ExperimentOutcomeService _experimentOutcomeService = new();
+    private readonly SessionTrendService _sessionTrendService = new();
 
     private void AnalyzeLatestSession_Click(object sender, RoutedEventArgs e)
     {
@@ -34,6 +35,9 @@ public partial class MainWindow
                 StatusText.Text = "Latest session analyzed.";
                 StatusDetailText.Text = Path.GetFileName(pair.Latest);
             }
+
+            var recent = _sessionCaptureService.FindRecentCaptures(8);
+            report += "\n\n" + _sessionTrendService.BuildTrendReport(recent);
 
             new TextReportWindow("GPTOPT Latest Session", report) { Owner = this }.ShowDialog();
         }
