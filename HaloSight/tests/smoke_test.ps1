@@ -66,10 +66,11 @@ Assert ($launcherText -notmatch '(?i):menu|set /p|Select an option|HaloSight Sta
 Assert ($launcherText -notmatch '(?i)HaloSight\.ps1"\s+-Mode\s+(start|stop|status|report)') 'GPTOPT_LAUNCHER.cmd exposes direct HaloSight modes.'
 
 $runText = Get-Content -Raw -LiteralPath $RunGptOptPath
-Assert ($runText -match '\[ValidateSet\(''gui'',''test''\)\]') 'Run-GPTOPT.ps1 must only expose gui/test modes.'
+Assert ($runText -match '\[ValidateSet\(''gui'',''legacy'',''test''\)\]') 'Run-GPTOPT.ps1 must expose gui/legacy/test modes.'
 Assert ($runText -match '\[string\]\$Mode\s*=\s*''gui''') 'Run-GPTOPT.ps1 must default to GUI mode.'
-Assert ($runText -match 'HaloSightGUI\.ps1') 'Run-GPTOPT.ps1 gui mode must launch HaloSightGUI.ps1.'
-Assert ($runText -notmatch "(?i)'(start|stop|status|settings)'") 'Run-GPTOPT.ps1 exposes removed normal-user modes.'
+Assert ($runText -match 'Invoke-GPTOPTDesktopApp\.ps1') 'Run-GPTOPT.ps1 gui mode must launch the GPTOPT desktop app.'
+Assert ($runText -match 'HaloSightGUI\.ps1') 'Run-GPTOPT.ps1 legacy mode must retain the HaloSight GUI fallback.'
+Assert ($runText -notmatch "(?im)^\s*'(start|stop|status|settings)'\s*\{") 'Run-GPTOPT.ps1 exposes removed normal-user switch modes.'
 
 $guiText = Get-Content -Raw -LiteralPath (Join-Path $Root 'scripts\HaloSightGUI.ps1')
 Assert ($guiText -match 'function Get-HaloSightDashboardState') 'Dashboard state function missing.'
