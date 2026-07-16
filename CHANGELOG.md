@@ -21,3 +21,4 @@ All notable project changes should be documented here.
 
 - Improved raw-file reviewability and CI trustworthiness by enforcing newline normalization.
 - Avoided PowerShell 7.5+ generic-list conversion failures after controller sampling.
+- Updated the HaloSight smoke test for the current desktop-app `gui/legacy/test` launcher contract.
