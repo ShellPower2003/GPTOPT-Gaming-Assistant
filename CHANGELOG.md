@@ -25,3 +25,4 @@ All notable project changes should be documented here.
 - Avoided PowerShell 7.5+ generic-list conversion failures after controller sampling.
 - Updated the HaloSight smoke test for the current desktop-app `gui/legacy/test` launcher contract.
 - Scoped the removed-mode smoke assertion to switch labels so `$ErrorActionPreference = 'Stop'` is not misclassified as a launcher mode.
+- Replaced a Unicode report separator that Windows PowerShell 5.1 misread as a smart quote and added Windows PowerShell 5.1 syntax/encoding validation to CI.
