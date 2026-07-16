@@ -93,6 +93,23 @@ function Get-FlatJsonMap {
     return $map
 }
 
+function Get-USBSelectiveSuspendState {
+    # Use GUIDs because some Windows builds do not register the SUB_USB and
+    # USBSELECTIVE powercfg aliases. Run through cmd.exe so native stderr is
+    # captured as text instead of becoming a terminating PowerShell error.
+    $usbSubgroup = '2a737441-1930-4402-8d77-b2bebba308a3'
+    $usbSelectiveSuspend = '48e6b7a6-50f5-4782-a5d4-53bb8f07e226'
+    try {
+        $query = (& cmd.exe /d /c "powercfg.exe /query SCHEME_CURRENT $usbSubgroup $usbSelectiveSuspend 2>&1" | Out-String)
+        if ($LASTEXITCODE -ne 0) { return 'Unknown' }
+        if ($query -match 'Current AC Power Setting Index:\s+0x00000000') { return 'Disabled' }
+        if ($query -match 'Current AC Power Setting Index:\s+0x00000001') { return 'Enabled' }
+        return 'Unknown'
+    } catch {
+        return 'Unknown'
+    }
+}
+
 function Publish-GPTOPTControllerReport {
     param([string]$Repo,[string]$Body)
     $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
@@ -168,6 +185,12 @@ if ($SelfTest) {
     $list.Add([pscustomobject]@{ packet=1; lx=0.0; ly=0.0; rx=0.0; ry=0.0 }) | Out-Null
     $converted = $list.ToArray()
     if ($converted.Count -ne 1 -or $converted[0].packet -ne 1) { throw 'Controller sample-list self-test failed.' }
+    $powerCfg = Get-Command powercfg.exe -ErrorAction SilentlyContinue
+    if ($powerCfg) {
+        $usbState = Get-USBSelectiveSuspendState
+        if ($usbState -notin @('Disabled','Enabled')) { throw 'USB selective suspend powercfg self-test failed.' }
+        Write-Host "PASS: USB selective suspend query returned $usbState." -ForegroundColor Green
+    }
     Write-Host 'PASS: controller diagnostic backend loads.' -ForegroundColor Green
     Write-Host 'PASS: embedded XInput reader compiles.' -ForegroundColor Green
     Write-Host 'PASS: PowerShell sample-list conversion works.' -ForegroundColor Green
@@ -246,8 +269,7 @@ $serviceRows = @('GameInputSvc','XboxGipSvc','hidserv') | ForEach-Object {
     $service = Get-Service -Name $_ -ErrorAction SilentlyContinue
     if ($service) { [pscustomobject]@{ name=$service.Name; status=[string]$service.Status; start_type=[string]$service.StartType } }
 }
-$usbQuery = (powercfg.exe /query SCHEME_CURRENT SUB_USB USBSELECTIVE 2>$null | Out-String)
-$usbSelectiveSuspend = if ($usbQuery -match 'Current AC Power Setting Index:\s+0x00000000') { 'Disabled' } elseif ($usbQuery -match 'Current AC Power Setting Index:\s+0x00000001') { 'Enabled' } else { 'Unknown' }
+$usbSelectiveSuspend = Get-USBSelectiveSuspendState
 
 $flydigiRoots = @(
     (Join-Path $env:APPDATA 'Flydigi'),
