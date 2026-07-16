@@ -39,6 +39,8 @@ This repository is for building and maintaining a custom GPT / assistant that ca
 - `prompt_examples.json` — sample user prompts / conversation starters
 - `GPT_Builder_Setup_Guide.txt` — setup guide for importing into a custom GPT
 - `Scripts/Ultimate-Utility.ps1` — utility script with a read-only audit path
+- `Run-GPTOPTControllerAimCheck.ps1` — one-command, read-only controller aim-feel diagnostic
+- `Scripts/Invoke-GPTOPTControllerAimCheck.ps1` — XInput/Flydigi center, noise, range, conflict, and Halo input collector
 - `Profiles/Competitive-Latency-Baseline.ps1` — competitive tuning checklist script
 - `Profiles/Visual-Quality-Baseline.ps1` — image-quality tuning checklist script
 - `NIP/GPTOPT-Competitive-Latency-Baseline.nip` — competitive preset in actual export-style XML format
@@ -63,6 +65,14 @@ This repository is for building and maintaining a custom GPT / assistant that ca
 3. Keep risky changes explicit.
 4. Validate with measurement tools.
 5. Keep the assistant concise, decisive, and technically grounded.
+
+## Controller aim-feel check
+
+With the Vader 4 Pro connected by USB in XInput mode and Flydigi SpaceStation running:
+
+`./Run-GPTOPTControllerAimCheck.ps1`
+
+The guided test measures both sticks hands-off and through their full range, checks for competing input layers, and writes Markdown and JSON reports under `Desktop\GPTOPT-Logs\ControllerAim`. It does not change controller, Steam, Windows, or Halo settings.
 
 ## Scope
 

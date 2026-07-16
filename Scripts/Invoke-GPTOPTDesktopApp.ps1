@@ -8,6 +8,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 $AuditRoot = Join-Path $env:LOCALAPPDATA 'GPTOPT\Audits'
 $LatestJson = Join-Path $AuditRoot 'latest\GPTOPT-SanitizedReport.json'
 $Collector = Join-Path $Root 'Scripts\Invoke-GPTOPTAudit.ps1'
+$ControllerAimCheck = Join-Path $Root 'Run-GPTOPTControllerAimCheck.ps1'
 
 function Read-LatestAudit {
     if (-not (Test-Path -LiteralPath $LatestJson)) { return $null }
@@ -86,8 +87,13 @@ $xaml = @'
       <TabItem Header="Halo">
         <StackPanel Margin="18">
           <TextBlock Text="Halo Infinite" FontSize="24" FontWeight="Bold"/>
-          <TextBlock Text="Halo-specific validation and tuning modules will live here. The desktop application now owns the workflow; scripts remain backend services." Foreground="#9CA8B8" TextWrapping="Wrap" Margin="0,6,0,16"/>
-          <Button Name="OpenHaloSettingsBtn" Content="Open Halo settings folder" Width="220" Height="42" HorizontalAlignment="Left"/>
+          <TextBlock Text="Read-only controller and Halo diagnostics. No settings are changed." Foreground="#9CA8B8" TextWrapping="Wrap" Margin="0,6,0,16"/>
+          <WrapPanel>
+            <Button Name="RunControllerAimBtn" Content="Check controller aim feel" Width="220" Height="42" Margin="0,0,10,10"/>
+            <Button Name="OpenControllerReportsBtn" Content="Open controller reports" Width="210" Height="42" Margin="0,0,10,10"/>
+            <Button Name="OpenHaloSettingsBtn" Content="Open Halo settings folder" Width="220" Height="42" Margin="0,0,10,10"/>
+          </WrapPanel>
+          <TextBlock Text="The aim check measures hands-off center/noise, full stick range, XInput motion updates, Flydigi runtime state, duplicate/remapped inputs, Steam Input risk, and readable Halo controller values." Foreground="#C8D0DC" TextWrapping="Wrap" Margin="0,8,0,0" MaxWidth="850" HorizontalAlignment="Left"/>
         </StackPanel>
       </TabItem>
 
@@ -173,6 +179,19 @@ $Window.FindName('OpenAuditFolderBtn').Add_Click({ New-Item -ItemType Directory 
 $Window.FindName('OpenIssueBtn').Add_Click({ Start-Process 'https://github.com/ShellPower2003/GPTOPT-Gaming-Assistant/issues/30' })
 $Window.FindName('OpenSelectedBtn').Add_Click({ if ($HistoryGrid.SelectedItem) { Start-Process explorer.exe $HistoryGrid.SelectedItem.Folder } })
 $Window.FindName('OpenHaloSettingsBtn').Add_Click({ $p=Join-Path $env:LOCALAPPDATA 'HaloInfinite\Settings'; if(Test-Path $p){Start-Process explorer.exe $p}else{[System.Windows.MessageBox]::Show('Halo settings folder not found.','GPTOPT')|Out-Null} })
+$Window.FindName('RunControllerAimBtn').Add_Click({
+    if (-not (Test-Path -LiteralPath $ControllerAimCheck)) {
+        [System.Windows.MessageBox]::Show("Controller aim diagnostic missing: $ControllerAimCheck",'GPTOPT') | Out-Null
+        return
+    }
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ControllerAimCheck`"" -WorkingDirectory $Root
+    Add-AppLog 'Launched read-only controller aim check.'
+})
+$Window.FindName('OpenControllerReportsBtn').Add_Click({
+    $p=Join-Path $env:USERPROFILE 'Desktop\GPTOPT-Logs\ControllerAim'
+    New-Item -ItemType Directory -Path $p -Force | Out-Null
+    Start-Process explorer.exe $p
+})
 
 function Start-FirstExisting([string[]]$Paths,[string]$Name) {
     $p=$Paths|Where-Object{Test-Path $_}|Select-Object -First 1

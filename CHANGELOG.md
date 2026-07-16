@@ -10,6 +10,8 @@ All notable project changes should be documented here.
 - Contributor guidance.
 - Security policy.
 - Architecture and roadmap documentation.
+- Read-only controller aim diagnostic for XInput/Flydigi center noise, range, motion updates, input-layer conflicts, and Halo controller settings.
+- Controller aim-check launcher and desktop-app Halo-tab controls.
 
 ### Changed
 
@@ -18,3 +20,4 @@ All notable project changes should be documented here.
 ### Fixed
 
 - Improved raw-file reviewability and CI trustworthiness by enforcing newline normalization.
+- Avoided PowerShell 7.5+ generic-list conversion failures after controller sampling.

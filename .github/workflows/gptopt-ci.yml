@@ -44,6 +44,11 @@ jobs:
         run: |
           Invoke-ScriptAnalyzer -Path . -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
 
+      - name: Test controller aim collector
+        shell: pwsh
+        run: |
+          ./Scripts/Test-GPTOPTControllerAimCheck.ps1
+
       - name: Run HaloSight smoke test
         shell: powershell
         run: |
