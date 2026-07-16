@@ -25,6 +25,15 @@ jobs:
             $null = [scriptblock]::Create((Get-Content -Raw -LiteralPath $_.FullName))
           }
 
+      - name: Validate Windows PowerShell 5.1 syntax and encoding
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem -Recurse -File -Filter *.ps1 | ForEach-Object {
+            Write-Host "Windows PowerShell parsing $($_.FullName)"
+            $null = [scriptblock]::Create((Get-Content -Raw -LiteralPath $_.FullName))
+          }
+
       - name: Validate JSON files
         shell: pwsh
         run: |
@@ -48,6 +57,11 @@ jobs:
         shell: pwsh
         run: |
           ./Scripts/Test-GPTOPTControllerAimCheck.ps1
+
+      - name: Test controller aim collector in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File ./Scripts/Test-GPTOPTControllerAimCheck.ps1
 
       - name: Run HaloSight smoke test
         shell: powershell

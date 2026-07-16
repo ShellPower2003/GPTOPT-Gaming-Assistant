@@ -430,7 +430,7 @@ $markdown.Add("- Center samples: $($centerSamples.Count)")
 $markdown.Add("- Movement samples: $($movementSamples.Count)")
 $markdown.Add('')
 $markdown.Add('## Bottom line')
-foreach ($finding in $findings) { $markdown.Add("- **$($finding.status) — $($finding.area):** $($finding.detail)") }
+foreach ($finding in $findings) { $markdown.Add("- **$($finding.status) - $($finding.area):** $($finding.detail)") }
 $markdown.Add('')
 $markdown.Add('## Stick measurements')
 $markdown.Add("- Left center radius: mean $($analysis.center.left_radius_mean_pct)%, p95 $($analysis.center.left_radius_p95_pct)%, max $($analysis.center.left_radius_max_pct)%")
