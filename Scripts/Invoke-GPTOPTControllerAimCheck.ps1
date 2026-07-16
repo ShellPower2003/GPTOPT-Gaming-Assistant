@@ -17,8 +17,11 @@ param(
     [int]$CenterSeconds = 5,
     [ValidateRange(8,30)]
     [int]$MovementSeconds = 15,
-    [string]$OutputRoot = (Join-Path $env:USERPROFILE 'Desktop\GPTOPT-Logs\ControllerAim'),
-    [switch]$NoPause
+    [string]$OutputRoot = (Join-Path $(if($env:USERPROFILE){$env:USERPROFILE}else{[IO.Path]::GetTempPath()}) 'Desktop\GPTOPT-Logs\ControllerAim'),
+    [string]$Repository = 'ShellPower2003/GPTOPT-Gaming-Assistant',
+    [switch]$Publish,
+    [switch]$NoPause,
+    [switch]$SelfTest
 )
 
 Set-StrictMode -Version Latest
@@ -90,6 +93,35 @@ function Get-FlatJsonMap {
     return $map
 }
 
+function Publish-GPTOPTControllerReport {
+    param([string]$Repo,[string]$Body)
+    $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
+    if (-not $gh) { $gh = Get-Command gh -ErrorAction SilentlyContinue }
+    if (-not $gh) { throw 'GitHub CLI was not found. Run the GPTOPT bootstrap or install gh.' }
+
+    & $gh.Source auth status --hostname github.com *> $null
+    if ($LASTEXITCODE -ne 0) { throw 'GitHub CLI is not authenticated. Run: gh auth login' }
+
+    $title = '[GPTOPT-CONTROLLER] Latest Controller Aim Report'
+    $searchJson = & $gh.Source issue list --repo $Repo --state open --search '"[GPTOPT-CONTROLLER]" in:title' --json number,title --limit 20
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to query the persistent controller report issue.' }
+    $existing = @($searchJson | ConvertFrom-Json) | Where-Object title -eq $title | Select-Object -First 1
+    $temp = Join-Path $env:TEMP ("gptopt-controller-{0}.md" -f [guid]::NewGuid().ToString('N'))
+    try {
+        Set-Content -LiteralPath $temp -Value $Body -Encoding UTF8
+        if ($existing) {
+            & $gh.Source issue edit $existing.number --repo $Repo --body-file $temp
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to update the persistent controller report issue.' }
+            return (& $gh.Source issue view $existing.number --repo $Repo --json url --jq .url)
+        }
+        $url = & $gh.Source issue create --repo $Repo --title $title --body-file $temp
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to create the persistent controller report issue.' }
+        return $url
+    } finally {
+        Remove-Item -LiteralPath $temp -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Set-GPTOPTProgress 3 'Loading native XInput reader'
 if (-not ('GPTOPT.XInput' -as [type])) {
     Add-Type -TypeDefinition @'
@@ -129,6 +161,17 @@ namespace GPTOPT {
     }
 }
 '@
+}
+
+if ($SelfTest) {
+    $list = New-Object System.Collections.Generic.List[object]
+    $list.Add([pscustomobject]@{ packet=1; lx=0.0; ly=0.0; rx=0.0; ry=0.0 }) | Out-Null
+    $converted = $list.ToArray()
+    if ($converted.Count -ne 1 -or $converted[0].packet -ne 1) { throw 'Controller sample-list self-test failed.' }
+    Write-Host 'PASS: controller diagnostic backend loads.' -ForegroundColor Green
+    Write-Host 'PASS: embedded XInput reader compiles.' -ForegroundColor Green
+    Write-Host 'PASS: PowerShell sample-list conversion works.' -ForegroundColor Green
+    return
 }
 
 function Read-XInputState {
@@ -392,6 +435,8 @@ $markdown.Add('')
 $markdown.Add('## Stick measurements')
 $markdown.Add("- Left center radius: mean $($analysis.center.left_radius_mean_pct)%, p95 $($analysis.center.left_radius_p95_pct)%, max $($analysis.center.left_radius_max_pct)%")
 $markdown.Add("- Right center radius: mean $($analysis.center.right_radius_mean_pct)%, p95 $($analysis.center.right_radius_p95_pct)%, max $($analysis.center.right_radius_max_pct)%")
+$markdown.Add("- Left axes: LX mean $($analysis.center.axes.lx.mean_pct)%, noise $($analysis.center.axes.lx.noise_stddev_pct)%; LY mean $($analysis.center.axes.ly.mean_pct)%, noise $($analysis.center.axes.ly.noise_stddev_pct)%")
+$markdown.Add("- Right axes: RX mean $($analysis.center.axes.rx.mean_pct)%, noise $($analysis.center.axes.rx.noise_stddev_pct)%; RY mean $($analysis.center.axes.ry.mean_pct)%, noise $($analysis.center.axes.ry.noise_stddev_pct)%")
 $markdown.Add("- Left range: X -$($analysis.range.lx.negative_pct)% / +$($analysis.range.lx.positive_pct)%; Y -$($analysis.range.ly.negative_pct)% / +$($analysis.range.ly.positive_pct)%")
 $markdown.Add("- Right range: X -$($analysis.range.rx.negative_pct)% / +$($analysis.range.rx.positive_pct)%; Y -$($analysis.range.ry.negative_pct)% / +$($analysis.range.ry.positive_pct)%")
 $markdown.Add("- XInput motion updates: $($analysis.xinput_motion_updates.changed_packets) changed packets; median $($analysis.xinput_motion_updates.median_interval_ms) ms; p95 $($analysis.xinput_motion_updates.p95_interval_ms) ms; observed-change rate $($analysis.xinput_motion_updates.observed_change_hz) Hz")
@@ -402,12 +447,31 @@ $markdown.Add("- Processes: $(if($runningProcesses){$runningProcesses -join ', '
 $markdown.Add("- USB selective suspend on AC: $usbSelectiveSuspend")
 $markdown.Add("- Halo controller values captured: $($haloControllerSettings.Count)")
 $markdown.Add('')
-$markdown.Add('Send both this Markdown report and the JSON report back for interpretation before changing calibration, deadzones, curves, or polling settings.')
+$markdown.Add('## Halo controller values')
+if ($haloControllerSettings.Count -gt 0) {
+    foreach ($key in $haloControllerSettings.Keys) { $markdown.Add("- ``$key``: $($haloControllerSettings[$key])") }
+} else {
+    $markdown.Add('- No controller-related scalar values were readable from the Halo JSON file.')
+}
+$markdown.Add('')
+$markdown.Add('This issue is automatically replaced by the next controller test so GPTOPT always has the latest result.')
 $markdown -join "`r`n" | Set-Content -LiteralPath $markdownPath -Encoding UTF8
 
 $latestDirectory = Join-Path $OutputRoot 'latest'
 New-Item -ItemType Directory -Path $latestDirectory -Force | Out-Null
 Copy-Item -LiteralPath $jsonPath,$markdownPath -Destination $latestDirectory -Force
+
+$publishResult = 'not requested'
+if ($Publish) {
+    Set-GPTOPTProgress 96 'Uploading latest controller report to GitHub'
+    try {
+        $publishResult = Publish-GPTOPTControllerReport -Repo $Repository -Body ($markdown -join "`r`n")
+        Add-Finding $findings 'PASS' 'Automatic upload' "Published latest controller result: $publishResult"
+    } catch {
+        $publishResult = "FAILED: $($_.Exception.Message)"
+        Add-Finding $findings 'FAIL' 'Automatic upload' $publishResult
+    }
+}
 
 Set-GPTOPTProgress 100 'Complete'
 Write-Progress -Activity 'GPTOPT Controller Aim Check' -Completed
@@ -420,5 +484,6 @@ foreach ($finding in $findings) {
 Write-Host ''
 Write-Host "REPORT: $markdownPath" -ForegroundColor Cyan
 Write-Host "JSON:   $jsonPath" -ForegroundColor Cyan
+Write-Host "UPLOAD: $publishResult" -ForegroundColor $(if($publishResult -like 'http*'){'Green'}else{'Yellow'})
 Start-Process explorer.exe $runDirectory
 if (-not $NoPause) { [void](Read-Host 'Press Enter to close') }
