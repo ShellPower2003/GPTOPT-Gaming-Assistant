@@ -17,6 +17,8 @@ param(
     [int]$CenterSeconds = 5,
     [ValidateRange(8,30)]
     [int]$MovementSeconds = 15,
+    [ValidateRange(3,30)]
+    [int]$XInputWaitSeconds = 12,
     [string]$OutputRoot = (Join-Path $(if($env:USERPROFILE){$env:USERPROFILE}else{[IO.Path]::GetTempPath()}) 'Desktop\GPTOPT-Logs\ControllerAim'),
     [string]$Repository = 'ShellPower2003/GPTOPT-Gaming-Assistant',
     [switch]$Publish,
@@ -110,6 +112,48 @@ function Get-USBSelectiveSuspendState {
     }
 }
 
+function Get-ConnectedXInputSlots {
+    param([scriptblock]$Reader)
+    $slots = New-Object System.Collections.Generic.List[int]
+    foreach ($slot in 0..3) {
+        if ($null -ne (& $Reader $slot)) { $slots.Add($slot) }
+    }
+    return $slots.ToArray()
+}
+
+function Wait-ConnectedXInputSlots {
+    param([int]$TimeoutSeconds,[scriptblock]$Reader)
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    do {
+        $slots = @(Get-ConnectedXInputSlots -Reader $Reader)
+        if ($slots.Count -gt 0) {
+            Write-Progress -Activity 'GPTOPT Controller Aim Check' -Completed
+            return $slots
+        }
+        $remaining = [math]::Max(0,$TimeoutSeconds - $clock.Elapsed.TotalSeconds)
+        Write-Progress -Activity 'GPTOPT Controller Aim Check' -Status ("Waiting for XInput controller: {0:N1}s remaining" -f $remaining) -PercentComplete 8
+        if ($clock.Elapsed.TotalSeconds -lt $TimeoutSeconds) { [Threading.Thread]::Sleep(250) }
+    } while ($clock.Elapsed.TotalSeconds -lt $TimeoutSeconds)
+    Write-Progress -Activity 'GPTOPT Controller Aim Check' -Completed
+    return @()
+}
+
+function Get-ControllerDetectionContext {
+    $deviceNames = @()
+    try {
+        $deviceNames = @(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object {
+            $_.FriendlyName -match 'Flydigi|Vader|Xbox|XInput|Game Controller|HID-compliant game' -or
+            $_.InstanceId -match 'VID_045E&PID_028E|FLYDIGI_VADER4'
+        } | Select-Object -ExpandProperty FriendlyName -Unique)
+    } catch {}
+    $runtimeNames = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.ProcessName -match 'FlydigiSpaceStation|GameControllerService'
+    } | Select-Object -ExpandProperty ProcessName -Unique)
+    $devices = if ($deviceNames.Count -gt 0) { $deviceNames -join ', ' } else { 'none matched' }
+    $runtime = if ($runtimeNames.Count -gt 0) { $runtimeNames -join ', ' } else { 'not detected' }
+    return "Windows controller devices: $devices. Flydigi runtime: $runtime."
+}
+
 function Publish-GPTOPTControllerReport {
     param([string]$Repo,[string]$Body)
     $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
@@ -185,6 +229,9 @@ if ($SelfTest) {
     $list.Add([pscustomobject]@{ packet=1; lx=0.0; ly=0.0; rx=0.0; ry=0.0 }) | Out-Null
     $converted = $list.ToArray()
     if ($converted.Count -ne 1 -or $converted[0].packet -ne 1) { throw 'Controller sample-list self-test failed.' }
+    $fakeReader = { param($Index) if ($Index -eq 2) { return [pscustomobject]@{ packet=1 } } }
+    $fakeSlots = @(Wait-ConnectedXInputSlots -TimeoutSeconds 3 -Reader $fakeReader)
+    if ($fakeSlots.Count -ne 1 -or $fakeSlots[0] -ne 2) { throw 'XInput multi-slot discovery self-test failed.' }
     $powerCfg = Get-Command powercfg.exe -ErrorAction SilentlyContinue
     if ($powerCfg) {
         $usbState = Get-USBSelectiveSuspendState
@@ -194,6 +241,7 @@ if ($SelfTest) {
     Write-Host 'PASS: controller diagnostic backend loads.' -ForegroundColor Green
     Write-Host 'PASS: embedded XInput reader compiles.' -ForegroundColor Green
     Write-Host 'PASS: PowerShell sample-list conversion works.' -ForegroundColor Green
+    Write-Host 'PASS: XInput multi-slot discovery and wait path works.' -ForegroundColor Green
     return
 }
 
@@ -246,9 +294,12 @@ Write-Host 'Keep the Vader 4 Pro WIRED and keep Flydigi SpaceStation running.' -
 Write-Host ''
 
 Set-GPTOPTProgress 8 'Detecting connected XInput slots'
-$connectedSlots = @()
-foreach ($slot in 0..3) { if ($null -ne (Read-XInputState $slot)) { $connectedSlots += $slot } }
-if ($connectedSlots.Count -eq 0) { throw 'No XInput controller detected. Connect the Vader 4 Pro by USB in XInput mode and retry.' }
+Write-Host "Waiting up to $XInputWaitSeconds seconds for Windows/Flydigi to expose an XInput slot. Press any controller face button once." -ForegroundColor Yellow
+$connectedSlots = @(Wait-ConnectedXInputSlots -TimeoutSeconds $XInputWaitSeconds -Reader { param($Index) Read-XInputState $Index })
+if ($connectedSlots.Count -eq 0) {
+    $detectionContext = Get-ControllerDetectionContext
+    throw "No XInput controller appeared after $XInputWaitSeconds seconds. $detectionContext In Flydigi SpaceStation, confirm the Vader 4 Pro is in XInput mode; if it already is, unplug and reconnect its USB cable, then retry."
+}
 if ($connectedSlots -notcontains $ControllerIndex) {
     if ($PSBoundParameters.ContainsKey('ControllerIndex')) { throw "XInput slot $ControllerIndex is not connected. Connected slot(s): $($connectedSlots -join ', ')." }
     $ControllerIndex = $connectedSlots[0]

@@ -27,3 +27,4 @@ All notable project changes should be documented here.
 - Scoped the removed-mode smoke assertion to switch labels so `$ErrorActionPreference = 'Stop'` is not misclassified as a launcher mode.
 - Replaced a Unicode report separator that Windows PowerShell 5.1 misread as a smart quote and added Windows PowerShell 5.1 syntax/encoding validation to CI.
 - Replaced unsupported USB power-setting aliases with stable GUIDs and made the read-only query non-fatal.
+- Added bounded multi-slot XInput discovery retries and actionable Windows/Flydigi device context when no slot appears.
