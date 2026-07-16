@@ -183,6 +183,42 @@ function Publish-GPTOPTControllerReport {
     }
 }
 
+function New-GPTOPTControllerFailureReport {
+    param([string]$Message)
+    $safeMessage = $Message
+    foreach ($privatePath in @($env:USERPROFILE,$env:APPDATA,$env:LOCALAPPDATA,$env:TEMP)) {
+        if ($privatePath) { $safeMessage = $safeMessage -replace [regex]::Escape($privatePath),'%USERPROFILE%'
+        }
+    }
+    $safeMessage = $safeMessage -replace '[\r\n]+',' '
+    return @"
+# GPTOPT Controller Aim Check
+
+- Status: FAIL
+- Captured: $((Get-Date).ToString('o'))
+- PowerShell: $($PSVersionTable.PSVersion)
+- Safety: read-only; no controller, Windows, Flydigi, Steam, or Halo settings were changed
+
+## Failure
+
+$safeMessage
+"@
+}
+
+trap {
+    $controllerFailure = $_
+    if ($Publish -and -not $SelfTest) {
+        try {
+            $failureBody = New-GPTOPTControllerFailureReport -Message $controllerFailure.Exception.Message
+            $failureUrl = Publish-GPTOPTControllerReport -Repo $Repository -Body $failureBody
+            Write-Host "Failure report uploaded automatically: $failureUrl" -ForegroundColor Yellow
+        } catch {
+            Write-Warning "Automatic failure upload did not complete: $($_.Exception.Message)"
+        }
+    }
+    throw $controllerFailure
+}
+
 Set-GPTOPTProgress 3 'Loading native XInput reader'
 if (-not ('GPTOPT.XInput' -as [type])) {
     Add-Type -TypeDefinition @'
@@ -232,6 +268,8 @@ if ($SelfTest) {
     $fakeReader = { param($Index) if ($Index -eq 2) { return [pscustomobject]@{ packet=1 } } }
     $fakeSlots = @(Wait-ConnectedXInputSlots -TimeoutSeconds 3 -Reader $fakeReader)
     if ($fakeSlots.Count -ne 1 -or $fakeSlots[0] -ne 2) { throw 'XInput multi-slot discovery self-test failed.' }
+    $failureBody = New-GPTOPTControllerFailureReport -Message 'Synthetic controller discovery failure.'
+    if ($failureBody -notmatch 'Status: FAIL' -or $failureBody -notmatch 'Synthetic controller discovery failure') { throw 'Controller failure-report self-test failed.' }
     $powerCfg = Get-Command powercfg.exe -ErrorAction SilentlyContinue
     if ($powerCfg) {
         $usbState = Get-USBSelectiveSuspendState
@@ -242,6 +280,7 @@ if ($SelfTest) {
     Write-Host 'PASS: embedded XInput reader compiles.' -ForegroundColor Green
     Write-Host 'PASS: PowerShell sample-list conversion works.' -ForegroundColor Green
     Write-Host 'PASS: XInput multi-slot discovery and wait path works.' -ForegroundColor Green
+    Write-Host 'PASS: early-failure upload report generation works.' -ForegroundColor Green
     return
 }
 
