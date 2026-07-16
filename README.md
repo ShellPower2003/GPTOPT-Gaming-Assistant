@@ -72,7 +72,7 @@ With the Vader 4 Pro connected by USB in XInput mode and Flydigi SpaceStation ru
 
 `./Run-GPTOPTControllerAimCheck.ps1`
 
-The guided test measures both sticks hands-off and through their full range, checks for competing input layers, and writes Markdown and JSON reports under `Desktop\GPTOPT-Logs\ControllerAim`. It does not change controller, Steam, Windows, or Halo settings.
+The guided test measures both sticks hands-off and through their full range, checks for competing input layers, and writes Markdown and JSON reports under `Desktop\GPTOPT-Logs\ControllerAim`. When launched from the GPTOPT app, the latest sanitized Markdown result automatically replaces the persistent `[GPTOPT-CONTROLLER]` GitHub issue. It does not change controller, Steam, Windows, or Halo settings.
 
 ## Scope
 

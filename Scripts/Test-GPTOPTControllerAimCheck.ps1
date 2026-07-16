@@ -19,5 +19,16 @@ $errors = $null
 [void][Management.Automation.Language.Parser]::ParseFile($source,[ref]$tokens,[ref]$errors)
 if ($errors.Count -gt 0) { throw "Controller diagnostic syntax failed: $($errors.Message -join '; ')" }
 
+$root = Split-Path -Parent $PSScriptRoot
+$launcher = Join-Path $root 'Run-GPTOPTControllerAimCheck.ps1'
+& $launcher -SelfTest
+
+$appText = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'Invoke-GPTOPTDesktopApp.ps1')
+if ($appText -notmatch 'Invoke-GPTOPTControllerAimCheck\.ps1') { throw 'Desktop app does not target the controller diagnostic backend.' }
+if ($appText -notmatch '-Publish') { throw 'Desktop app does not enable automatic controller report upload.' }
+if ($appText -notmatch 'Controller aim launch failed') { throw 'Desktop app does not expose controller launch failures.' }
+
 Write-Host 'PASS: controller sample-list conversion works.' -ForegroundColor Green
 Write-Host 'PASS: controller diagnostic parses cleanly.' -ForegroundColor Green
+Write-Host 'PASS: controller launcher backend self-test works.' -ForegroundColor Green
+Write-Host 'PASS: desktop app enables upload and visible launch errors.' -ForegroundColor Green

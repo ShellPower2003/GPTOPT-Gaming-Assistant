@@ -12,6 +12,8 @@ All notable project changes should be documented here.
 - Architecture and roadmap documentation.
 - Read-only controller aim diagnostic for XInput/Flydigi center noise, range, motion updates, input-layer conflicts, and Halo controller settings.
 - Controller aim-check launcher and desktop-app Halo-tab controls.
+- Automatic persistent GitHub upload for the latest controller aim report.
+- Visible controller-launch error handling and a hardware-free app/backend launch self-test.
 
 ### Changed
 

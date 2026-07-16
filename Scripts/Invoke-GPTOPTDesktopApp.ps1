@@ -8,7 +8,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 $AuditRoot = Join-Path $env:LOCALAPPDATA 'GPTOPT\Audits'
 $LatestJson = Join-Path $AuditRoot 'latest\GPTOPT-SanitizedReport.json'
 $Collector = Join-Path $Root 'Scripts\Invoke-GPTOPTAudit.ps1'
-$ControllerAimCheck = Join-Path $Root 'Run-GPTOPTControllerAimCheck.ps1'
+$ControllerAimCheck = Join-Path $Root 'Scripts\Invoke-GPTOPTControllerAimCheck.ps1'
 
 function Read-LatestAudit {
     if (-not (Test-Path -LiteralPath $LatestJson)) { return $null }
@@ -91,6 +91,7 @@ $xaml = @'
           <WrapPanel>
             <Button Name="RunControllerAimBtn" Content="Check controller aim feel" Width="220" Height="42" Margin="0,0,10,10"/>
             <Button Name="OpenControllerReportsBtn" Content="Open controller reports" Width="210" Height="42" Margin="0,0,10,10"/>
+            <Button Name="OpenControllerUploadBtn" Content="Open latest controller upload" Width="230" Height="42" Margin="0,0,10,10"/>
             <Button Name="OpenHaloSettingsBtn" Content="Open Halo settings folder" Width="220" Height="42" Margin="0,0,10,10"/>
           </WrapPanel>
           <TextBlock Text="The aim check measures hands-off center/noise, full stick range, XInput motion updates, Flydigi runtime state, duplicate/remapped inputs, Steam Input risk, and readable Halo controller values." Foreground="#C8D0DC" TextWrapping="Wrap" Margin="0,8,0,0" MaxWidth="850" HorizontalAlignment="Left"/>
@@ -184,13 +185,25 @@ $Window.FindName('RunControllerAimBtn').Add_Click({
         [System.Windows.MessageBox]::Show("Controller aim diagnostic missing: $ControllerAimCheck",'GPTOPT') | Out-Null
         return
     }
-    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ControllerAimCheck`"" -WorkingDirectory $Root
-    Add-AppLog 'Launched read-only controller aim check.'
+    try {
+        $engine = Get-Command powershell.exe -ErrorAction Stop
+        $arguments = '-NoProfile -ExecutionPolicy Bypass -NoExit -File "{0}" -Publish -NoPause' -f $ControllerAimCheck
+        $process = Start-Process -FilePath $engine.Source -ArgumentList $arguments -WorkingDirectory $Root -PassThru -ErrorAction Stop
+        $StatusText.Text = 'Controller aim check running...'
+        Add-AppLog "Controller aim check launched. PID $($process.Id). Auto-upload enabled."
+    } catch {
+        $StatusText.Text = 'Controller aim launch failed'
+        Add-AppLog "Controller aim launch failed: $($_.Exception.Message)"
+        [System.Windows.MessageBox]::Show("Controller aim check could not start.`r`n`r`n$($_.Exception.Message)",'GPTOPT') | Out-Null
+    }
 })
 $Window.FindName('OpenControllerReportsBtn').Add_Click({
     $p=Join-Path $env:USERPROFILE 'Desktop\GPTOPT-Logs\ControllerAim'
     New-Item -ItemType Directory -Path $p -Force | Out-Null
     Start-Process explorer.exe $p
+})
+$Window.FindName('OpenControllerUploadBtn').Add_Click({
+    Start-Process 'https://github.com/ShellPower2003/GPTOPT-Gaming-Assistant/issues?q=is%3Aissue+is%3Aopen+in%3Atitle+%22%5BGPTOPT-CONTROLLER%5D%22'
 })
 
 function Start-FirstExisting([string[]]$Paths,[string]$Name) {
