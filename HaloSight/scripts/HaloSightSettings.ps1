@@ -2,7 +2,19 @@ $SettingsScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SettingsRootDir = Split-Path -Parent $SettingsScriptDir
 $SettingsConfigDir = Join-Path $SettingsRootDir 'config'
 $SettingsDefaultPath = Join-Path $SettingsConfigDir 'halosight.default.json'
-$SettingsUserPath = Join-Path $SettingsConfigDir 'halosight.user.json'
+if([string]::IsNullOrWhiteSpace($env:HALOSIGHT_USER_CONFIG_PATH)){
+    $SettingsUserPath = Join-Path $SettingsConfigDir 'halosight.user.json'
+}else{
+    $SettingsUserPath = [Environment]::ExpandEnvironmentVariables($env:HALOSIGHT_USER_CONFIG_PATH)
+}
+
+function Initialize-HaloSightConfigDirectories {
+    New-Item -ItemType Directory -Force -Path $SettingsConfigDir | Out-Null
+    $userDir = Split-Path -Parent $SettingsUserPath
+    if(-not [string]::IsNullOrWhiteSpace($userDir)){
+        New-Item -ItemType Directory -Force -Path $userDir | Out-Null
+    }
+}
 
 function Copy-HaloSightObject {
     param([Parameter(Mandatory=$true)]$InputObject)
@@ -34,7 +46,7 @@ function Get-HaloSightConfig {
         throw "Missing default config: $SettingsDefaultPath"
     }
     if(!(Test-Path -LiteralPath $SettingsUserPath)){
-        New-Item -ItemType Directory -Force -Path $SettingsConfigDir | Out-Null
+        Initialize-HaloSightConfigDirectories
         Copy-Item -LiteralPath $SettingsDefaultPath -Destination $SettingsUserPath -Force
     }
     $default = Get-Content -Raw -LiteralPath $SettingsDefaultPath | ConvertFrom-Json
@@ -44,7 +56,7 @@ function Get-HaloSightConfig {
 
 function Save-HaloSightConfig {
     param([Parameter(Mandatory=$true)]$Config)
-    New-Item -ItemType Directory -Force -Path $SettingsConfigDir | Out-Null
+    Initialize-HaloSightConfigDirectories
     $Config | ConvertTo-Json -Depth 20 | Out-File -FilePath $SettingsUserPath -Encoding UTF8
     return Get-HaloSightConfig
 }
@@ -53,7 +65,7 @@ function Reset-HaloSightConfig {
     if(!(Test-Path -LiteralPath $SettingsDefaultPath)){
         throw "Missing default config: $SettingsDefaultPath"
     }
-    New-Item -ItemType Directory -Force -Path $SettingsConfigDir | Out-Null
+    Initialize-HaloSightConfigDirectories
     Copy-Item -LiteralPath $SettingsDefaultPath -Destination $SettingsUserPath -Force
     return Get-HaloSightConfig
 }
